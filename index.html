@@ -406,22 +406,23 @@
             </section>
             
             <section id="sponsor-view" class="view">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <div class="d-flex align-items-center gap-3">
-                        <select id="active-sponsor-select" class="form-select border-2 rounded-4 fw-bold shadow-sm" style="min-width: 200px;">
+                <div class="mb-4">
+                    <div class="d-flex flex-wrap align-items-center gap-3">
+                        <select id="active-sponsor-select" class="form-select border-2 rounded-4 fw-bold shadow-sm flex-grow-1" style="min-width: 200px; max-width: 400px;">
                             <option value="">Select Sponsor (اختر الكفيل)</option>
                         </select>
-                        <button class="btn btn-primary rounded-pill px-4 shadow-sm" data-bs-toggle="modal" data-bs-target="#new-sponsor-modal">+ New Sponsor</button>
-                        <button id="edit-sponsor-btn" class="btn btn-outline-secondary rounded-pill px-4 shadow-sm" style="display: none;" onclick="openEditSponsorModal()">Edit Profile</button>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-primary rounded-pill px-4 shadow-sm" data-bs-toggle="modal" data-bs-target="#new-sponsor-modal">+ New</button>
+                            <button id="edit-sponsor-btn" class="btn btn-outline-secondary rounded-pill px-3 shadow-sm" style="display: none;" onclick="openEditSponsorModal()">Edit</button>
+                        </div>
                     </div>
                 </div>
 
                 <div id="sponsor-tabs-container" style="display: none;">
-                    <ul class="nav nav-pills nav-fill gap-2 mb-4 bg-light p-2 rounded-pill shadow-sm">
-                        <li class="nav-item"><button class="nav-link active rounded-pill fw-bold" data-bs-toggle="pill" data-bs-target="#tab-add">➕ إضافة</button></li>
-                        <li class="nav-item"><button class="nav-link rounded-pill fw-bold" data-bs-toggle="pill" data-bs-target="#tab-records">📋 السجلات</button></li>
-                        <li class="nav-item"><button class="nav-link rounded-pill fw-bold" data-bs-toggle="pill" data-bs-target="#tab-monthly">📅 شهري</button></li>
-                        <li class="nav-item"><button class="nav-link rounded-pill fw-bold" data-bs-toggle="pill" data-bs-target="#tab-statement">💰 الكشف</button></li>
+                    <ul class="nav nav-pills nav-fill gap-2 mb-4 bg-light p-2 rounded-4 shadow-sm flex-column flex-sm-row">
+                        <li class="nav-item"><button class="nav-link active rounded-pill fw-bold py-2" data-bs-toggle="pill" data-bs-target="#tab-add">➕ Add Entry</button></li>
+                        <li class="nav-item"><button class="nav-link rounded-pill fw-bold py-2" data-bs-toggle="pill" data-bs-target="#tab-records">📋 Records</button></li>
+                        <li class="nav-item"><button class="nav-link rounded-pill fw-bold py-2" data-bs-toggle="pill" data-bs-target="#tab-statement">💰 Statement</button></li>
                     </ul>
 
                     <div class="tab-content mt-4">
@@ -435,12 +436,12 @@
                                             <label class="small fw-bold text-muted mb-2">DATE (التاريخ)</label>
                                             <input type="date" name="date" class="form-control border-2" required>
                                         </div>
-                                        <div class="col-md-6">
-                                            <label class="small fw-bold text-muted mb-2">AHLI AMOUNT (الأهلي)</label>
+                                        <div class="col-6 col-md-6">
+                                            <label class="small fw-bold text-muted mb-2">AHLI (الأهلي)</label>
                                             <input type="number" name="ahli" class="form-control border-2" step="0.01" placeholder="0.00">
                                         </div>
-                                        <div class="col-md-6">
-                                            <label class="small fw-bold text-muted mb-2">BILAD AMOUNT (البلاد)</label>
+                                        <div class="col-6 col-md-6">
+                                            <label class="small fw-bold text-muted mb-2">BILAD (البلاد)</label>
                                             <input type="number" name="bilad" class="form-control border-2" step="0.01" placeholder="0.00">
                                         </div>
                                         <div class="col-12 mt-3">
@@ -484,37 +485,20 @@
                             </div>
                         </div>
 
-                        <!-- TAB: MONTHLY -->
-                        <div class="tab-pane fade" id="tab-monthly">
-                            <div class="d-flex justify-content-between align-items-center mb-4">
-                                <div class="d-flex gap-2">
-                                    <select id="sp-month-filter" class="form-select border-2 rounded-pill px-4">
-                                        <option value="0">January</option><option value="1">February</option><option value="2">March</option><option value="3">April</option>
-                                        <option value="4">May</option><option value="5">June</option><option value="6">July</option><option value="7">August</option>
-                                        <option value="8">September</option><option value="9">October</option><option value="10">November</option><option value="11">December</option>
-                                    </select>
-                                    <select id="sp-year-filter" class="form-select border-2 rounded-pill px-4">
-                                        <option>2024</option><option selected>2025</option><option>2026</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="table-responsive bg-white rounded-5 shadow-sm border"><table class="table align-middle mb-0"><thead class="bg-light"><tr><th class="ps-4">Date</th><th>Withdrawals</th><th>Deductions</th><th class="pe-4 text-center">Net Daily</th></tr></thead><tbody id="sp-monthly-body"></tbody></table></div>
-                        </div>
-
                         <!-- TAB: STATEMENT -->
                         <div class="tab-pane fade" id="tab-statement">
                             <div class="card p-4 border-0 shadow-sm rounded-5 bg-white mb-4">
                                 <h6 class="fw-bold mb-4">Select Date Range for Report</h6>
                                 <div class="row g-3">
-                                    <div class="col-md-5">
+                                    <div class="col-6 col-md-5">
                                         <label class="small fw-bold text-muted mb-2">FROM</label>
                                         <input type="date" id="sp-date-from" class="form-control border-2">
                                     </div>
-                                    <div class="col-md-5">
+                                    <div class="col-6 col-md-5">
                                         <label class="small fw-bold text-muted mb-2">TO</label>
                                         <input type="date" id="sp-date-to" class="form-control border-2">
                                     </div>
-                                    <div class="col-md-2 d-flex align-items-end">
+                                    <div class="col-12 col-md-2 d-flex align-items-end">
                                         <button class="btn btn-primary w-100 rounded-pill py-2 shadow-sm fw-bold" onclick="generateSponsorReport()">📥 Get Statement</button>
                                     </div>
                                 </div>

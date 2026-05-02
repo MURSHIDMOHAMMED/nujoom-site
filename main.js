@@ -501,11 +501,6 @@ function setupListeners() {
         };
     }
 
-    const spMonth = document.getElementById('sp-month-filter');
-    if (spMonth) spMonth.onchange = () => renderSponsorMonthly();
-    
-    const spYear = document.getElementById('sp-year-filter');
-    if (spYear) spYear.onchange = () => renderSponsorMonthly();
 
     const newSponsorForm = document.getElementById('new-sponsor-form');
     if (newSponsorForm) {
@@ -1140,7 +1135,6 @@ async function handleSponsorTx(e, type) {
 
 function renderSponsorAll() {
     renderSponsorRecords();
-    renderSponsorMonthly();
 }
 
 function renderSponsorRecords() {
@@ -1196,35 +1190,6 @@ async function deleteSponsorTx(id) {
     }
 }
 
-function renderSponsorMonthly() {
-    const m = parseInt(document.getElementById('sp-month-filter').value);
-    const y = parseInt(document.getElementById('sp-year-filter').value);
-    const body = document.getElementById('sp-monthly-body');
-    body.innerHTML = '';
-    
-    // Group by day
-    const daily = {};
-    sponsorTransactions.forEach(tx => {
-        const txMonth = getMonthFromDate(tx.date);
-        const txYear = parseInt(tx.date.split('-')[0]);
-        if (txMonth === m && txYear === y) {
-            const dateStr = tx.date;
-            if (!daily[dateStr]) daily[dateStr] = { w: 0, e: 0 };
-            if (tx.type === 'withdrawal') daily[dateStr].w += tx.amount; else daily[dateStr].e += tx.amount;
-        }
-    });
-
-    Object.keys(daily).sort().reverse().forEach(date => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td class="ps-4 small fw-bold">${date}</td>
-            <td class="text-primary fw-bold">₹${daily[date].w.toLocaleString()}</td>
-            <td class="text-success fw-bold">₹${daily[date].e.toLocaleString()}</td>
-            <td class="text-center pe-4 fw-bold">₹${(daily[date].w - daily[date].e).toLocaleString()}</td>
-        `;
-        body.appendChild(tr);
-    });
-}
 
 
 
@@ -1291,7 +1256,7 @@ async function generateSponsorReport() {
     preview.style.display = 'block';
     preview.innerHTML = `
         <div class="card border-0 shadow-lg rounded-5 overflow-hidden" dir="rtl" id="sponsor-report-card">
-            <div class="p-5 bg-white">
+            <div class="p-3 p-md-5 bg-white">
                 <div class="no-print-btn text-start mb-4">
                     <button class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm" onclick="downloadSponsorPDF('${from}','${to}')">📥 تحميل PDF</button>
                 </div>
@@ -1335,13 +1300,13 @@ async function generateSponsorReport() {
                     </div>
                 ` : ''}
 
-                <div class="mt-4 p-4 rounded-4 bg-light border border-2">
-                    <div class="row g-3 text-end">
-                        <div class="col-6 fw-bold">إجمالي الأهلي + البلاد:</div><div class="col-6 text-start fw-bold">₹${subtotal.toLocaleString()}</div>
-                        <div class="col-6 text-danger fw-bold">إجمالي الخصومات:</div><div class="col-6 text-start text-danger fw-bold">- ₹${totalExp.toLocaleString()}</div>
-                        <div class="col-6 text-muted fw-bold">كشف قديم (الرصيد):</div><div class="col-6 text-start text-muted fw-bold">+ ₹${openingBal.toLocaleString()}</div>
+                <div class="mt-4 p-3 p-md-4 rounded-4 bg-light border border-2">
+                    <div class="row g-2 g-md-3 text-end">
+                        <div class="col-7 col-md-6 fw-bold">إجمالي الأهلي + البلاد:</div><div class="col-5 col-md-6 text-start fw-bold">₹${subtotal.toLocaleString()}</div>
+                        <div class="col-7 col-md-6 text-danger fw-bold">إجمالي الخصومات:</div><div class="col-5 col-md-6 text-start text-danger fw-bold">- ₹${totalExp.toLocaleString()}</div>
+                        <div class="col-7 col-md-6 text-muted fw-bold">كشف قديم (الرصيد):</div><div class="col-5 col-md-6 text-start text-muted fw-bold">+ ₹${openingBal.toLocaleString()}</div>
                         <div class="col-12"><hr class="my-1"></div>
-                        <div class="col-6 h5 fw-bold text-primary">كشف جديد:</div><div class="col-6 text-start h5 fw-bold text-primary">₹${finalNet.toLocaleString()}</div>
+                        <div class="col-7 col-md-6 h5 fw-bold text-primary">كشف جديد:</div><div class="col-5 col-md-6 text-start h5 fw-bold text-primary">₹${finalNet.toLocaleString()}</div>
                     </div>
                 </div>
             </div>
