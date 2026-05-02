@@ -24,13 +24,6 @@ window.documents = documents;
 window.onload = async function() {
     console.log("🚀 Nujoom Ledger Initializing...");
     
-    try {
-        // Run setupListeners in a safe way
-        setupListeners();
-    } catch (e) {
-        console.error("⚠️ Error in setupListeners:", e);
-    }
-
     // Wait for auth
     if (!window.fb) {
         console.error("❌ Firebase not initialized! Check firebase-app.js");
@@ -147,6 +140,9 @@ function startApp(n) {
     document.querySelectorAll('.active-branch-display').forEach(el => el.textContent = n); 
     switchView('dashboard'); 
 }
+
+// Make switchView global so it can be called from anywhere
+window.switchView = switchView;
 
 async function deleteBranch(n) { 
     if(confirm(`Delete "${n}"?`)) { 
@@ -616,6 +612,15 @@ function setupListeners() {
     ['cas','ba','cb','bb'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.oninput = updateLiveCalc;
+    });
+
+    // Profit Share Live Update Listeners
+    ['profit-total-input', 'profit-month', 'profit-year'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', renderProfitShares);
+            el.addEventListener('change', renderProfitShares);
+        }
     });
 
     document.querySelectorAll('.add-doc-btn').forEach(b => {
@@ -1405,4 +1410,7 @@ window.editEntry = editEntry; window.deleteEntry = deleteEntry;
 window.deleteDoc = deleteDoc; window.editDoc = editDoc; window.addExpenseRow = addExpenseRow; window.restoreTrash = restoreTrash; window.permanentDelete = permanentDelete;
 window.refreshSponsorUI = refreshSponsorUI;
 window.appendCalc = appendCalc; window.clearCalc = clearCalc; window.backspaceCalc = backspaceCalc; window.runCalc = runCalc;
+
+// Initialize immediately since this is a module
+setupListeners();
 
