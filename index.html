@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nujoom Ledger | Multi-Branch Manager</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- jsPDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --bg-main: #f8fafc;
+            --bg-sidebar: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --card-bg: #ffffff;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --radius: 14px;
+            --success: #10b981;
+            --danger: #f43f5e;
+            --warning: #f59e0b;
+        }
+
+        /* Calculator Floating Style */
+        #calculator-toggle {
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        #calculator-toggle:hover {
+            transform: scale(1.1) rotate(5deg);
+            box-shadow: 0 10px 25px rgba(99, 102, 241, 0.4) !important;
+        }
+        #calculator-panel {
+            transition: all 0.3s ease;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.15) !important;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            transition: all 0.3s;
+            overflow-x: hidden;
+        }
+
+        #app { display: flex; min-height: 100vh; flex-direction: column; }
+        @media (min-width: 992px) { #app { flex-direction: row; } }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px; background-color: var(--bg-sidebar);
+            border-right: 1px solid var(--border-color);
+            display: flex; flex-direction: column;
+            position: fixed; top: 0; bottom: 0; left: 0; z-index: 1020;
+        }
+
+        .logo { display: flex; align-items: center; gap: 12px; font-weight: 700; }
+        .logo-icon {
+            width: 38px; height: 38px;
+            background: linear-gradient(135deg, var(--primary), #a855f7);
+            color: white; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.4rem; box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);
+        }
+
+        .nav-item {
+            display: flex; align-items: center; gap: 12px;
+            width: 100%; padding: 14px 18px; border: none;
+            background: transparent; color: var(--text-muted);
+            font-size: 0.95rem; font-weight: 600; border-radius: var(--radius);
+            cursor: pointer; transition: all 0.2s; margin-bottom: 8px; text-align: left;
+        }
+        .nav-item:hover { background-color: #f1f5f9; color: var(--text-main); }
+        .nav-item.active { background-color: var(--primary); color: white !important; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3); }
+
+        .content { flex: 1; padding: 24px; margin-left: 0; transition: all 0.3s; }
+        @media (min-width: 992px) { .content { margin-left: 280px; padding: 40px; } }
+
+        /* Mobile Header */
+        .mobile-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 15px 20px; background: white; border-bottom: 1px solid var(--border-color);
+            position: sticky; top: 0; z-index: 1030;
+        }
+        @media (min-width: 992px) { .mobile-header { display: none; } }
+
+        /* Branch Picker */
+        .branch-view {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(135deg, #4f46e5, #818cf8);
+            z-index: 4000; display: none; align-items: center; justify-content: center; padding: 20px;
+        }
+        .branch-view.active { display: flex !important; }
+
+        .branch-card {
+            background: white; border-radius: 24px; padding: 40px;
+            width: 100%; max-width: 600px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+
+        .branch-item-btn {
+            background: #f8fafc; border: 2px solid #e2e8f0;
+            padding: 20px; border-radius: 16px; width: 100%;
+            transition: all 0.3s; position: relative;
+        }
+        .branch-item-btn:hover { border-color: var(--primary); transform: translateY(-3px); background: white; box-shadow: var(--shadow); }
+
+        /* Status & Badges */
+        .status-badge { padding: 5px 12px; border-radius: 30px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        .status-active { background: #dcfce7; color: #15803d; }
+        .status-soon { background: #fef9c3; color: #a16207; }
+        .status-expired { background: #fee2e2; color: #b91c1c; }
+
+        .view { display: none; }
+        .view.active { display: block; }
+        .login-view {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(135deg, #0f172a, #334155);
+            z-index: 5000; display: none; align-items: center; justify-content: center; padding: 20px;
+        }
+        .login-view.active { display: flex !important; }
+
+        .stat-card { border-radius: 20px; border: none; transition: all 0.3s; }
+        .stat-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-lg); }
+
+        .balance-card { border-radius: 24px; border: none; overflow: hidden; color: white; position: relative; }
+        .balance-item { background: rgba(255,255,255,0.15); padding: 15px; border-radius: 16px; }
+
+        .exp-row { background: #f8fafc; padding: 10px; border-radius: 12px; border: 1px solid #e2e8f0; }
+
+        /* Print Styles */
+        @media print {
+            .sidebar, .mobile-header, .btn, .nav, #back-to-dashboard { display: none !important; }
+            .content { margin-left: 0 !important; padding: 0 !important; }
+            body { background: white !important; }
+            .balance-card { color: black !important; border: 1px solid #ddd !important; background: none !important; box-shadow: none !important; }
+            .balance-item { border: 1px solid #eee !important; background: none !important; }
+            .table { font-size: 10pt !important; }
+            .card { box-shadow: none !important; border: 1px solid #eee !important; }
+            .print-header { display: block !important; }
+        }
+        .print-header { display: none; margin-bottom: 20px; border-bottom: 2px solid var(--primary); padding-bottom: 15px; }
+
+        @media (max-width: 768px) {
+            .display-5 { font-size: 2.2rem; }
+            .table-responsive { font-size: 0.75rem; }
+            .content { padding: 15px; }
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <div id="app">
+        <!-- Login View -->
+        <section id="login-view" class="login-view active">
+            <div class="branch-card text-center" style="max-width: 400px;">
+                <div class="logo justify-content-center mb-3">
+                    <div class="logo-icon">N</div>
+                    <span class="h4 mb-0 fw-bold ms-2">Nujoom Ledger</span>
+                </div>
+                <h3 class="fw-bold mb-4">Welcome Back</h3>
+                <div class="mb-3">
+                    <input type="email" id="login-email" class="form-control border-2" placeholder="Enter Email Address..." required>
+                </div>
+                <div class="mb-4">
+                    <input type="password" id="login-pwd" class="form-control form-control-lg border-2" placeholder="Password">
+                </div>
+                <div class="d-grid gap-2">
+                    <button id="login-btn" class="btn btn-primary btn-lg fw-bold">Login</button>
+                    <button id="signup-btn" class="btn btn-outline-secondary fw-bold">Sign Up</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Branch Picker View -->
+        <section id="branch-selection-view" class="view branch-view">
+            <div class="branch-card text-center">
+                <div class="logo justify-content-center mb-3">
+                    <div class="logo-icon">N</div>
+                    <span class="h4 mb-0 fw-bold ms-2">Nujoom Ledger</span>
+                </div>
+                <h2 class="fw-bold mb-5">Select Branch</h2>
+                <div class="row g-3 mb-5" id="branch-buttons"></div>
+                <div class="pt-4 border-top">
+                    <label class="form-label small fw-bold text-muted">Add New Branch</label>
+                    <div class="input-group shadow-sm">
+                        <input type="text" id="new-branch-name" class="form-control form-control-lg border-2" placeholder="Branch Name...">
+                        <button id="add-branch-btn" class="btn btn-primary px-4 fw-bold">Add</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Mobile Header -->
+        <header class="mobile-header shadow-sm">
+            <div class="logo">
+                <div class="logo-icon" style="width: 32px; height: 32px; font-size: 1.1rem; border-radius: 8px;">N</div>
+                <span class="fw-bold h5 mb-0">Nujoom</span>
+            </div>
+            <button class="btn btn-light border" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileMenu">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+            </button>
+        </header>
+
+        <!-- Mobile Menu -->
+        <div class="offcanvas offcanvas-start" tabindex="-1" id="mobileMenu">
+            <div class="offcanvas-header border-bottom p-4">
+                <h5 class="fw-bold mb-0">Nujoom Menu</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+            </div>
+            <div class="offcanvas-body p-4">
+                <div class="p-4 bg-light rounded-4 mb-4 border shadow-sm">
+                    <small class="text-muted text-uppercase fw-bold d-block mb-1">Active Branch</small>
+                    <span class="fw-bold h5 text-primary active-branch-display">Branch Name</span>
+                    <button class="btn btn-sm btn-link p-0 mt-2 text-decoration-none fw-bold branch-switch-trigger" data-bs-dismiss="offcanvas">Change Branch</button>
+                </div>
+                <nav class="nav flex-column gap-2">
+                    <button class="nav-item nav-trigger-dashboard" data-bs-dismiss="offcanvas">Dashboard</button>
+                    <button class="nav-item nav-trigger-profit" data-bs-dismiss="offcanvas">Partner Shares</button>
+                    <button class="nav-item nav-trigger-sponsor" data-bs-dismiss="offcanvas">Sponsors (الكفلاء)</button>
+                    <button class="nav-item nav-trigger-employee" data-bs-dismiss="offcanvas">Employee Docs</button>
+                    <button class="nav-item nav-trigger-company" data-bs-dismiss="offcanvas">Company Docs</button>
+                    <button class="nav-item nav-trigger-settings" data-bs-dismiss="offcanvas">Alert Settings</button>
+                    <button class="nav-item nav-trigger-trash" data-bs-dismiss="offcanvas">Trash</button>
+                    <button class="nav-item text-danger logout-btn" style="display: none;">Logout</button>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Desktop Sidebar -->
+        <aside class="sidebar bg-white d-none d-lg-flex">
+            <div class="p-4 border-bottom w-100">
+                <div class="logo mb-4">
+                    <div class="logo-icon">N</div>
+                    <span class="h5 mb-0 fw-bold">Nujoom Ledger</span>
+                </div>
+                <div class="p-3 bg-light rounded-3 border">
+                    <small class="text-muted text-uppercase fw-bold d-block mb-1" style="font-size: 0.65rem;">Active Branch</small>
+                    <span class="fw-bold text-primary active-branch-display">Branch Name</span>
+                    <button class="btn btn-sm btn-link p-0 mt-2 text-decoration-none fw-bold branch-switch-trigger">Change Branch</button>
+                </div>
+            </div>
+            <nav class="p-3 flex-grow-1">
+                <button class="nav-item nav-trigger-dashboard">Dashboard</button>
+                <button class="nav-item nav-trigger-profit">Partner Shares</button>
+                <button class="nav-item nav-trigger-sponsor">Sponsors (الكفلاء)</button>
+                <button class="nav-item nav-trigger-employee">Employee Documents</button>
+                <button class="nav-item nav-trigger-company">Company Documents</button>
+                <button class="nav-item nav-trigger-settings">Alert Settings</button>
+                <button class="nav-item nav-trigger-trash">Trash</button>
+                <div class="mt-auto">
+                    <button class="nav-item text-danger logout-btn w-100" style="display: none;">Logout</button>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="content" style="display: none;">
+            <div class="print-header">
+                <h1 class="h4 fw-bold active-branch-display">Branch Name</h1>
+                <h2 class="h6 text-muted">Monthly Ledger Report - <span id="print-month-name"></span></h2>
+            </div>
+
+            <header class="d-flex align-items-center justify-content-between mb-5">
+                <h1 id="page-title" class="h3 fw-bold mb-0">Dashboard</h1>
+                <div class="d-flex gap-2">
+                    <button id="btn-print-ledger" class="btn btn-light border shadow-sm px-4 py-2 fw-bold rounded-pill" style="display: none;">🖨️ Export PDF</button>
+                    <button id="csv-upload-btn" class="btn btn-outline-success shadow-sm px-4 py-2 fw-bold rounded-pill">📂 Import CSV</button>
+                    <input type="file" id="csv-file-input" accept=".csv" style="display: none;">
+                    <button id="add-entry-btn" class="btn btn-primary shadow-lg px-4 py-2 fw-bold rounded-pill" data-bs-toggle="modal" data-bs-target="#entry-modal">+ New Entry</button>
+                </div>
+            </header>
+
+            <section id="dashboard-view" class="view active">
+                <div class="row g-4 mb-5">
+                    <div class="col-6 col-md-4"><div class="card p-4 shadow-sm stat-card border-0">Annual Income<div class="h3 fw-bold mt-2" id="year-income">₹0</div></div></div>
+                    <div class="col-6 col-md-4"><div class="card p-4 shadow-sm stat-card border-0">Annual Bills<div class="h3 fw-bold mt-2" id="year-expense">₹0</div></div></div>
+                    <div class="col-12 col-md-4"><div class="card p-4 shadow-lg stat-card border-0 bg-primary text-white">Annual Growth<div class="h3 fw-bold mt-2" id="year-profit">₹0</div></div></div>
+                </div>
+                <div class="row g-4" id="months-grid"></div>
+            </section>
+
+            <section id="month-detail-view" class="view">
+                <button id="back-to-dashboard" class="btn btn-light border mb-4 rounded-pill px-4 shadow-sm">← Back to Dashboard</button>
+                <div class="d-flex align-items-center justify-content-between mb-4">
+                    <h2 id="selected-month-name" class="h4 fw-bold mb-0">Month</h2>
+                    <div class="badge bg-primary px-3 py-2 rounded-pill shadow-sm" id="month-net-badge">Net: ₹0</div>
+                </div>
+                <div class="row g-4 mb-5">
+                    <div class="col-lg-6">
+                        <div class="card balance-card p-4 shadow-sm" style="background: linear-gradient(135deg, #059669, #10b981);">
+                            <h6 class="text-white-50 small fw-bold mb-4">Cash Ledger</h6>
+                            <div class="row g-2 text-center">
+                                <div class="col-4 balance-item"><small>In</small><div id="cash-inflow" class="fw-bold">₹0</div></div>
+                                <div class="col-4 balance-item"><small>Out</small><div id="cash-outflow" class="fw-bold">₹0</div></div>
+                                <div class="col-4 balance-item"><small>Bal</small><div class="h5 fw-bold mb-0" id="cash-closing">₹0</div></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <div class="card balance-card p-4 shadow-sm" style="background: linear-gradient(135deg, #4f46e5, #6366f1);">
+                            <h6 class="text-white-50 small fw-bold mb-4">Bank Ledger</h6>
+                            <div class="row g-2 text-center">
+                                <div class="col-4 balance-item"><small>In</small><div id="bank-inflow" class="fw-bold">₹0</div></div>
+                                <div class="col-4 balance-item"><small>Out</small><div id="bank-outflow" class="fw-bold">₹0</div></div>
+                                <div class="col-4 balance-item"><small>Bal</small><div class="h5 fw-bold mb-0" id="bank-closing">₹0</div></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-5"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="bg-light small"><tr><th class="ps-4">Date</th><th>BILL</th><th>CAS</th><th>BA</th><th>CB</th><th>BB</th><th>INC</th><th>C.BILL</th><th>C.CAS</th><th>C.INC</th><th class="pe-4 text-center">Act</th></tr></thead><tbody id="daily-entries-body"></tbody></table></div></div>
+                <div class="card border-0 shadow-sm p-4 mb-5"><h3 class="h5 fw-bold mb-4">Expenses Analysis</h3><div class="row g-3" id="expense-summary-grid"></div></div>
+            </section>
+
+            <section id="employee-docs-view" class="view">
+                <div class="row g-3 mb-4" id="employee-stats"><div class="col-4"><div class="card p-3 border-start border-danger border-4 small">Exp: <span class="count-expired">0</span></div></div><div class="col-4"><div class="card p-3 border-start border-warning border-4 small">Soon: <span class="count-soon">0</span></div></div><div class="col-4"><div class="card p-3 border-start border-success border-4 small">Act: <span class="count-active">0</span></div></div></div>
+                <div class="table-responsive bg-white rounded-4 shadow-sm"><table class="table"><thead class="bg-light"><tr><th class="ps-4">Name</th><th>Doc</th><th>Expiry</th><th>Status</th><th class="pe-4 text-center">Act</th></tr></thead><tbody class="docs-list-body" data-type="employee"></tbody></table></div>
+                <div class="mt-4 text-end d-flex gap-2 justify-content-end">
+                    <button class="btn btn-outline-success csv-doc-upload-btn rounded-pill px-4 shadow" data-type="employee">📂 Import CSV</button>
+                    <button class="btn btn-primary add-doc-btn rounded-pill px-4 shadow" data-type="employee" data-bs-toggle="modal" data-bs-target="#doc-modal">Add Document</button>
+                </div>
+            </section>
+
+            <section id="company-docs-view" class="view">
+                <div class="row g-3 mb-4" id="company-stats"><div class="col-4"><div class="card p-3 border-start border-danger border-4 small">Exp: <span class="count-expired">0</span></div></div><div class="col-4"><div class="card p-3 border-start border-warning border-4 small">Soon: <span class="count-soon">0</span></div></div><div class="col-4"><div class="card p-3 border-start border-success border-4 small">Act: <span class="count-active">0</span></div></div></div>
+                <div class="table-responsive bg-white rounded-4 shadow-sm"><table class="table"><thead class="bg-light"><tr><th class="ps-4">Name</th><th>Doc</th><th>Expiry</th><th>Status</th><th class="pe-4 text-center">Act</th></tr></thead><tbody class="docs-list-body" data-type="company"></tbody></table></div>
+                <div class="mt-4 text-end d-flex gap-2 justify-content-end">
+                    <button class="btn btn-outline-success csv-doc-upload-btn rounded-pill px-4 shadow" data-type="company">📂 Import CSV</button>
+                    <button class="btn btn-primary add-doc-btn rounded-pill px-4 shadow" data-type="company" data-bs-toggle="modal" data-bs-target="#doc-modal">Add Document</button>
+                </div>
+                <input type="file" id="csv-doc-file-input" accept=".csv" style="display: none;">
+            </section>
+
+            <!-- Alert Settings View -->
+            <section id="settings-view" class="view">
+                <div class="card p-4 shadow-sm border-0 rounded-4">
+                    <h3 class="h5 fw-bold mb-4">Email Alert Control</h3>
+                    <p class="text-muted small">System automatically checks for expiries on page load and after every save. Use the button below to trigger a manual check.</p>
+                    <button id="check-expiry-btn" class="btn btn-outline-primary rounded-pill px-4 fw-bold">Check Email Expiry Alerts</button>
+                </div>
+            </section>
+
+            <section id="profit-view" class="view">
+                <div class="card p-5 border-0 shadow-sm rounded-5 mb-5" style="background: var(--bg-sidebar); border: 1px solid var(--border-color) !important;">
+                    <div class="text-center mb-5">
+                        <div class="logo-icon mx-auto mb-3" style="width: 60px; height: 60px; background: linear-gradient(135deg, var(--primary), #a855f7); font-size: 1.8rem; border-radius: 12px;">BN</div>
+                        <h2 class="fw-bold mb-1">Boofiya Nujoom</h2>
+                        <p class="text-muted small text-uppercase spacing-4" style="letter-spacing: 4px;">Safa Branch &bull; Profit Share</p>
+                        <div class="mx-auto mt-3" style="width: 50px; height: 4px; background: var(--primary); border-radius: 10px;"></div>
+                    </div>
+
+                    <div class="row g-4 mb-5">
+                        <div class="col-md-4">
+                            <label class="small fw-bold text-muted mb-2">SELECT MONTH</label>
+                            <select id="profit-month" class="form-select border-2 rounded-4 p-3 shadow-sm">
+                                <option value="January">January</option><option value="February">February</option>
+                                <option value="March">March</option><option value="April">April</option>
+                                <option value="May">May</option><option value="June">June</option>
+                                <option value="July">July</option><option value="August">August</option>
+                                <option value="September">September</option><option value="October">October</option>
+                                <option value="November">November</option><option value="December">December</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="small fw-bold text-muted mb-2">SELECT YEAR</label>
+                            <select id="profit-year" class="form-select border-2 rounded-4 p-3 shadow-sm">
+                                <option>2024</option><option selected>2025</option><option>2026</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="small fw-bold text-muted mb-2">TOTAL PROFIT (RS.)</label>
+                            <div class="input-group">
+                                <span class="input-group-text border-2 rounded-start-4 bg-light fw-bold text-muted">Rs.</span>
+                                <input type="number" id="profit-total-input" class="form-control border-2 rounded-end-4 p-3 shadow-sm" placeholder="0.00">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="profit-summary-bar" class="p-4 rounded-4 mb-5 text-white d-flex justify-content-between align-items-center shadow-lg" style="background: linear-gradient(135deg, var(--primary), #818cf8); display: none !important;">
+                        <span class="small fw-bold opacity-75">TOTAL MONTHLY PROFIT</span>
+                        <h3 class="mb-0 fw-bold" id="profit-summary-amt">Rs. 0</h3>
+                    </div>
+
+                    <div id="profit-partners-grid" class="row g-4">
+                        <div class="col-12 text-center py-5 text-muted small">Enter the total profit above to calculate each partner's share</div>
+                    </div>
+
+                    <div id="profit-action-row" class="row g-3 mt-5" style="display: none !important;">
+                        <div class="col-md-6"><button class="btn btn-light border-2 w-100 py-3 rounded-4 fw-bold" onclick="printAllShares()">🖨️ Print All Receipts</button></div>
+                        <div class="col-md-6"><button class="btn btn-primary w-100 py-3 rounded-4 fw-bold shadow" onclick="downloadAllShares()">📥 Download All as PDF</button></div>
+                    </div>
+                </div>
+            </section>
+            
+            <section id="sponsor-view" class="view">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div class="d-flex align-items-center gap-3">
+                        <select id="active-sponsor-select" class="form-select border-2 rounded-4 fw-bold shadow-sm" style="min-width: 200px;">
+                            <option value="">Select Sponsor (اختر الكفيل)</option>
+                        </select>
+                        <button class="btn btn-primary rounded-pill px-4 shadow-sm" data-bs-toggle="modal" data-bs-target="#new-sponsor-modal">+ New Sponsor</button>
+                        <button id="edit-sponsor-btn" class="btn btn-outline-secondary rounded-pill px-4 shadow-sm" style="display: none;" onclick="openEditSponsorModal()">Edit Profile</button>
+                    </div>
+                </div>
+
+                <div id="sponsor-tabs-container" style="display: none;">
+                    <ul class="nav nav-pills nav-fill gap-2 mb-4 bg-light p-2 rounded-pill shadow-sm">
+                        <li class="nav-item"><button class="nav-link active rounded-pill fw-bold" data-bs-toggle="pill" data-bs-target="#tab-add">➕ إضافة</button></li>
+                        <li class="nav-item"><button class="nav-link rounded-pill fw-bold" data-bs-toggle="pill" data-bs-target="#tab-records">📋 السجلات</button></li>
+                        <li class="nav-item"><button class="nav-link rounded-pill fw-bold" data-bs-toggle="pill" data-bs-target="#tab-monthly">📅 شهري</button></li>
+                        <li class="nav-item"><button class="nav-link rounded-pill fw-bold" data-bs-toggle="pill" data-bs-target="#tab-statement">💰 الكشف</button></li>
+                    </ul>
+
+                    <div class="tab-content mt-4">
+                        <!-- TAB: ADD (LEDGER ENTRY) -->
+                        <div class="tab-pane fade show active" id="tab-add">
+                            <div class="card p-4 rounded-5 border-0 shadow-sm border-top border-primary border-4">
+                                <h5 class="fw-bold mb-4 text-primary">Daily Ledger Entry (قيد دفتر اليومية)</h5>
+                                <form id="form-ledger-entry">
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="small fw-bold text-muted mb-2">DATE (التاريخ)</label>
+                                            <input type="date" name="date" class="form-control border-2" required>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="small fw-bold text-muted mb-2">AHLI AMOUNT (الأهلي)</label>
+                                            <input type="number" name="ahli" class="form-control border-2" step="0.01" placeholder="0.00">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="small fw-bold text-muted mb-2">BILAD AMOUNT (البلاد)</label>
+                                            <input type="number" name="bilad" class="form-control border-2" step="0.01" placeholder="0.00">
+                                        </div>
+                                        <div class="col-12 mt-3">
+                                            <label class="small fw-bold text-muted mb-3 d-block">DEDUCTIONS (المصروفات والخصومات)</label>
+                                            <div id="sp-deductions-container" class="d-flex flex-column gap-2">
+                                                <!-- Dynamic rows will appear here -->
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3 mt-3 fw-bold" onclick="addSponsorDeductionRow()">+ إضافة مصروف (Add Deduction)</button>
+                                        </div>
+                                        <div class="col-12 mt-2">
+                                            <label class="small fw-bold text-muted mb-2">GENERAL NOTES (ملاحظات عامة)</label>
+                                            <input type="text" name="notes" class="form-control border-2" placeholder="Any additional details...">
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary w-100 rounded-pill py-3 fw-bold shadow-sm mt-4">Save Daily Entry</button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="tab-records">
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-3"><div class="card p-3 rounded-4 border-0 shadow-sm text-center bg-white"><div class="small fw-bold text-muted">Old Statement</div><div class="h5 mb-0 fw-bold text-muted" id="sp-opening-bal">0</div></div></div>
+                                <div class="col-md-3"><div class="card p-3 rounded-4 border-0 shadow-sm text-center bg-white"><div class="small fw-bold text-muted">Total Withdrawals</div><div class="h5 mb-0 fw-bold text-primary" id="sp-total-withdrawal">0</div></div></div>
+                                <div class="col-md-3"><div class="card p-3 rounded-4 border-0 shadow-sm text-center bg-white"><div class="small fw-bold text-muted">Total Deductions</div><div class="h5 mb-0 fw-bold text-danger" id="sp-total-expense">0</div></div></div>
+                                <div class="col-md-3"><div class="card p-3 rounded-4 border-0 shadow-sm text-center bg-primary text-white"><div class="small fw-bold opacity-75">New Statement</div><div class="h5 mb-0 fw-bold" id="sp-total-net">0</div></div></div>
+                            </div>
+                            <div class="table-responsive bg-white rounded-5 shadow-sm border">
+                                <table class="table table-hover align-middle mb-0 text-center">
+                                    <thead class="bg-light">
+                                        <tr>
+                                            <th class="ps-4 text-start">Date</th>
+                                            <th>Ahli (الأهلي)</th>
+                                            <th>Bilad (البلاد)</th>
+                                            <th>Deductions</th>
+                                            <th>Daily Net</th>
+                                            <th class="pe-4">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="sponsor-records-body"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- TAB: MONTHLY -->
+                        <div class="tab-pane fade" id="tab-monthly">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <div class="d-flex gap-2">
+                                    <select id="sp-month-filter" class="form-select border-2 rounded-pill px-4">
+                                        <option value="0">January</option><option value="1">February</option><option value="2">March</option><option value="3">April</option>
+                                        <option value="4">May</option><option value="5">June</option><option value="6">July</option><option value="7">August</option>
+                                        <option value="8">September</option><option value="9">October</option><option value="10">November</option><option value="11">December</option>
+                                    </select>
+                                    <select id="sp-year-filter" class="form-select border-2 rounded-pill px-4">
+                                        <option>2024</option><option selected>2025</option><option>2026</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="table-responsive bg-white rounded-5 shadow-sm border"><table class="table align-middle mb-0"><thead class="bg-light"><tr><th class="ps-4">Date</th><th>Withdrawals</th><th>Deductions</th><th class="pe-4 text-center">Net Daily</th></tr></thead><tbody id="sp-monthly-body"></tbody></table></div>
+                        </div>
+
+                        <!-- TAB: STATEMENT -->
+                        <div class="tab-pane fade" id="tab-statement">
+                            <div class="card p-4 border-0 shadow-sm rounded-5 bg-white mb-4">
+                                <h6 class="fw-bold mb-4">Select Date Range for Report</h6>
+                                <div class="row g-3">
+                                    <div class="col-md-5">
+                                        <label class="small fw-bold text-muted mb-2">FROM</label>
+                                        <input type="date" id="sp-date-from" class="form-control border-2">
+                                    </div>
+                                    <div class="col-md-5">
+                                        <label class="small fw-bold text-muted mb-2">TO</label>
+                                        <input type="date" id="sp-date-to" class="form-control border-2">
+                                    </div>
+                                    <div class="col-md-2 d-flex align-items-end">
+                                        <button class="btn btn-primary w-100 rounded-pill py-2 shadow-sm fw-bold" onclick="generateSponsorReport()">📥 Get Statement</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="sp-report-preview" style="display: none;">
+                                <!-- Report Breakdown UI will go here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="no-sponsor-selected" class="text-center py-5">
+                    <img src="https://illustrations.popsy.co/emerald/customer-service.svg" style="width: 200px; opacity: 0.5;">
+                    <h5 class="mt-4 text-muted">Please select a sponsor to view data</h5>
+                </div>
+            </section>
+
+            <section id="trash-view" class="view">
+                <h3 class="h5 fw-bold mb-4">Deleted Items (Trash)</h3>
+                <div class="table-responsive bg-white rounded-4 shadow-sm">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th class="ps-4">Type</th>
+                                <th>Deleted At</th>
+                                <th>Details</th>
+                                <th class="pe-4 text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="trash-list-body"></tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+
+        <!-- Modals -->
+        <div class="modal fade" id="entry-modal" tabindex="-1"><div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content border-0 shadow-lg rounded-5"><form id="entry-form"><div class="modal-body p-5"><h3 class="fw-bold mb-4 text-center">Daily Entry</h3><div class="row g-3"><div class="col-md-6"><label class="small fw-bold text-muted">DATE</label><input type="date" name="date" class="form-control border-2" required></div><div class="col-md-6"><label class="small fw-bold text-muted">BA IN</label><input type="number" name="ba" id="ba" class="form-control border-2" step="0.01"></div><div class="col-md-6"><label class="small fw-bold text-muted">CAS IN</label><input type="number" name="cas" id="cas" class="form-control border-2" step="0.01"></div><div class="col-md-6"><label class="small fw-bold text-muted">CB OUT</label><input type="number" name="cb" id="cb" class="form-control border-2" step="0.01"></div><div class="col-md-6"><label class="small fw-bold text-muted">BB OUT</label><input type="number" name="bb" id="bb" class="form-control border-2" step="0.01"></div><div class="col-12 mt-4"><label class="small fw-bold text-muted mb-2">OTHER EXPENSES</label><div id="other-expenses-container" class="d-flex flex-column gap-2"></div><button type="button" class="btn btn-outline-secondary btn-sm w-100 mt-2 rounded-pill fw-bold" onclick="addExpenseRow()">+ Add Expense</button></div></div><div class="p-4 bg-light rounded-4 mt-4 border"><div class="row text-center"><div class="col-6"><small class="text-muted fw-bold">Live BILL (BB+CB)</small><div class="h4 text-primary mt-1" id="preview-bk">₹0</div></div><div class="col-6"><small class="text-muted fw-bold">Live INC (BILL+CAS)</small><div class="h4 text-success mt-1" id="preview-inc">₹0</div></div></div></div></div><div class="modal-footer border-0 p-4 pt-0"><button type="submit" class="btn btn-primary w-100 py-3 rounded-pill fw-bold shadow">Save</button></div></form></div></div></div>
+        <div class="modal fade" id="doc-modal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content border-0 shadow-lg rounded-5"><form id="doc-form"><div class="modal-body p-5"><h3 class="fw-bold mb-4">Document Details</h3><div class="row g-3"><div class="col-12"><label id="lblDocName" class="small fw-bold text-muted">DOC NAME</label><input type="text" name="docName" class="form-control border-2" required></div><div class="col-12"><label id="lblPersonName" class="small fw-bold text-muted">NAME</label><input type="text" name="personName" class="form-control border-2" required></div><div class="col-12"><label class="small fw-bold text-muted">CATEGORY</label><input type="text" name="docCategory" id="docCategory" list="common-docs" class="form-control border-2" placeholder="e.g. Visa, License, etc."></div><div class="col-12"><label class="small fw-bold text-muted">EXPIRY DATE</label><input type="date" name="expiryDate" id="expiryDate" class="form-control border-2" required></div></div></div><div class="modal-footer border-0 p-4 pt-0"><button type="submit" id="btn-save-doc" class="btn btn-primary w-100 py-3 rounded-pill fw-bold shadow">Save Document</button></div></form></div></div></div>
+        <datalist id="common-docs"><option value="Passport"><option value="Visa"><option value="Trade License"><option value="VAT Certificate"><option value="Insurance"></datalist>
+    </div>
+
+    <div class="modal fade" id="new-sponsor-modal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content border-0 shadow-lg rounded-5"><form id="new-sponsor-form"><div class="modal-body p-5"><h3 class="fw-bold mb-4">New Sponsor (كفيل جديد)</h3><div class="mb-3"><label class="small fw-bold text-muted">SPONSOR NAME</label><input type="text" name="name" class="form-control border-2" placeholder="e.g. Abdullah" required></div><div class="mb-3"><label class="small fw-bold text-muted">OPENING BALANCE (الرصيد الافتتاحي)</label><input type="number" name="openingBalance" class="form-control border-2" placeholder="0.00" step="0.01"></div></div><div class="modal-footer border-0 p-4 pt-0"><button type="submit" class="btn btn-primary w-100 py-3 rounded-pill fw-bold shadow">Create Sponsor</button></div></form></div></div></div>
+
+    <div class="modal fade" id="edit-sponsor-modal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content border-0 shadow-lg rounded-5"><form id="edit-sponsor-form"><div class="modal-body p-5"><h3 class="fw-bold mb-4">Edit Sponsor Profile</h3><div class="mb-3"><label class="small fw-bold text-muted">SPONSOR NAME</label><input type="text" name="name" id="edit-sp-name" class="form-control border-2" required></div><div class="mb-3"><label class="small fw-bold text-muted">OPENING BALANCE</label><input type="number" name="openingBalance" id="edit-sp-bal" class="form-control border-2" step="0.01"></div></div><div class="modal-footer border-0 p-4 pt-0"><button type="submit" class="btn btn-primary w-100 py-3 rounded-pill fw-bold shadow">Update Profile</button></div></form></div></div></div>
+    <datalist id="sponsor-expense-cats"><option value="وقود (Fuel)"><option value="طعام (Food)"><option value="مواد (Materials)"><option value="صيانة (Maintenance)"><option value="رواتب (Salaries)"></datalist>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <script type="module" src="firebase-app.js?v=6"></script>
+    <script type="module" src="email-alerts.js?v=6"></script>
+    <script type="module" src="main.js?v=6"></script>
+    <!-- Floating Calculator -->
+    <button id="calculator-toggle" class="btn btn-primary rounded-circle shadow-lg" style="position: fixed; bottom: 20px; right: 20px; width: 56px; height: 56px; z-index: 9999; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; border: 3px solid rgba(255,255,255,0.2);">🧮</button>
+
+    <div id="calculator-panel" class="card shadow-lg border-0" style="position: fixed; bottom: 85px; right: 20px; width: 280px; z-index: 9999; display: none; border-radius: 24px; overflow: hidden; background: #ffffff;">
+        <div class="p-3 bg-primary text-white d-flex justify-content-between align-items-center" id="calc-header" style="cursor: move; user-select: none;">
+            <span class="fw-bold small">Nujoom Calc (Drag Header)</span>
+            <button class="btn-close btn-close-white" onclick="document.getElementById('calculator-panel').style.display='none'"></button>
+        </div>
+        <div class="p-3">
+            <div id="calc-history" class="text-muted text-end small mb-1" style="height: 20px; overflow: hidden;"></div>
+            <input type="text" id="calc-display" class="form-control form-control-lg text-end fw-bold border-0 bg-light mb-3" style="font-size: 1.5rem; color: var(--primary);" readonly value="0">
+            <div class="row g-2" id="calc-buttons">
+                <div class="col-3"><button class="btn btn-light w-100 py-2 rounded-3 fw-bold text-danger" onclick="clearCalc()">C</button></div>
+                <div class="col-3"><button class="btn btn-light w-100 py-2 rounded-3 fw-bold" onclick="appendCalc('/')">÷</button></div>
+                <div class="col-3"><button class="btn btn-light w-100 py-2 rounded-3 fw-bold" onclick="appendCalc('*')">×</button></div>
+                <div class="col-3"><button class="btn btn-light w-100 py-2 rounded-3 fw-bold" onclick="backspaceCalc()">⌫</button></div>
+                
+                <div class="col-3"><button class="btn btn-light w-100 py-2 rounded-3 fw-bold" onclick="appendCalc('7')">7</button></div>
+                <div class="col-3"><button class="btn btn-light w-100 py-2 rounded-3 fw-bold" onclick="appendCalc('8')">8</button></div>
+                <div class="col-3"><button class="btn btn-light w-100 py-2 rounded-3 fw-bold" onclick="appendCalc('9')">9</button></div>
+                <div class="col-3"><button class="btn btn-primary w-100 py-2 rounded-3 fw-bold" onclick="appendCalc('-')">-</button></div>
+                
+                <div class="col-3"><button class="btn btn-light w-100 py-2 rounded-3 fw-bold" onclick="appendCalc('4')">4</button></div>
+                <div class="col-3"><button class="btn btn-light w-100 py-2 rounded-3 fw-bold" onclick="appendCalc('5')">5</button></div>
+                <div class="col-3"><button class="btn btn-light w-100 py-2 rounded-3 fw-bold" onclick="appendCalc('6')">6</button></div>
+                <div class="col-3"><button class="btn btn-primary w-100 py-2 rounded-3 fw-bold" onclick="appendCalc('+')">+</button></div>
+                
+                <div class="col-3"><button class="btn btn-light w-100 py-2 rounded-3 fw-bold" onclick="appendCalc('1')">1</button></div>
+                <div class="col-3"><button class="btn btn-light w-100 py-2 rounded-3 fw-bold" onclick="appendCalc('2')">2</button></div>
+                <div class="col-3"><button class="btn btn-light w-100 py-2 rounded-3 fw-bold" onclick="appendCalc('3')">3</button></div>
+                <div class="col-3" style="grid-row: span 2;"><button class="btn btn-success w-100 h-100 py-2 rounded-3 fw-bold" onclick="runCalc()">=</button></div>
+                
+                <div class="col-6"><button class="btn btn-light w-100 py-2 rounded-3 fw-bold" onclick="appendCalc('0')">0</button></div>
+                <div class="col-3"><button class="btn btn-light w-100 py-2 rounded-3 fw-bold" onclick="appendCalc('.')">.</button></div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
