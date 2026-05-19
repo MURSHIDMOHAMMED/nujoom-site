@@ -15,7 +15,7 @@
     
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=6">
+    <link rel="stylesheet" href="styles.css?v=10">
     
     <style>
         :root {
@@ -232,6 +232,7 @@
                     <button class="nav-item nav-trigger-profit" data-bs-dismiss="offcanvas">Partner Shares</button>
                     <button class="nav-item nav-trigger-sponsor" data-bs-dismiss="offcanvas">Sponsors (الكفلاء)</button>
                     <button class="nav-item nav-trigger-employee" data-bs-dismiss="offcanvas">Employee Docs</button>
+                    <button class="nav-item nav-trigger-salary" data-bs-dismiss="offcanvas">Employee Salary</button>
                     <button class="nav-item nav-trigger-company" data-bs-dismiss="offcanvas">Company Docs</button>
                     <button class="nav-item nav-trigger-settings" data-bs-dismiss="offcanvas">Alert Settings</button>
                     <button class="nav-item nav-trigger-trash" data-bs-dismiss="offcanvas">Trash</button>
@@ -258,6 +259,7 @@
                 <button class="nav-item nav-trigger-profit">Partner Shares</button>
                 <button class="nav-item nav-trigger-sponsor">Sponsors (الكفلاء)</button>
                 <button class="nav-item nav-trigger-employee">Employee Documents</button>
+                <button class="nav-item nav-trigger-salary">Employee Salary</button>
                 <button class="nav-item nav-trigger-company">Company Documents</button>
                 <button class="nav-item nav-trigger-settings">Alert Settings</button>
                 <button class="nav-item nav-trigger-trash">Trash</button>
@@ -285,6 +287,27 @@
             </header>
 
             <section id="dashboard-view" class="view active">
+                <!-- Custom Date Range Card -->
+                <div class="card p-4 border-0 shadow-sm rounded-4 mb-4" style="background: var(--bg-sidebar); border: 1px solid var(--border-color) !important;">
+                    <h5 class="fw-bold mb-3 text-primary">Custom Date Range Report (تقرير تاريخ مخصص)</h5>
+                    <div class="row g-3 align-items-end">
+                        <div class="col-6 col-md-4">
+                            <label class="small fw-bold text-muted mb-2">FROM DATE (من تاريخ)</label>
+                            <input type="date" id="dash-date-from" class="form-control border-2 rounded-3">
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <label class="small fw-bold text-muted mb-2">TO DATE (إلى تاريخ)</label>
+                            <input type="date" id="dash-date-to" class="form-control border-2 rounded-3">
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <button id="dash-get-report-btn" class="btn btn-primary w-100 rounded-pill py-2.5 shadow-sm fw-bold">🔍 Generate Report</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Report Preview Container -->
+                    <div id="dash-report-preview" class="mt-4" style="display: none;"></div>
+                </div>
+
                 <div class="row g-4 mb-5">
                     <div class="col-6 col-md-4"><div class="card p-4 shadow-sm stat-card border-0">Annual Income<div class="h3 fw-bold mt-2" id="year-income">₹0</div></div></div>
                     <div class="col-6 col-md-4"><div class="card p-4 shadow-sm stat-card border-0">Annual Bills<div class="h3 fw-bold mt-2" id="year-expense">₹0</div></div></div>
@@ -532,6 +555,585 @@
                     </table>
                 </div>
             </section>
+
+            <section id="salary-view" class="view">
+                <!-- Salary Tab Pills Navigation -->
+                <ul class="nav nav-pills nav-fill gap-2 mb-4 bg-white p-2 rounded-4 shadow-sm flex-column flex-md-row border">
+                    <li class="nav-item"><button class="nav-link active rounded-pill fw-bold py-2" id="salary-pill-employees">👥 Employees</button></li>
+                    <li class="nav-item"><button class="nav-link rounded-pill fw-bold py-2" id="salary-pill-advance">💸 Salary Advance</button></li>
+                    <li class="nav-item"><button class="nav-link rounded-pill fw-bold py-2" id="salary-pill-debt">⚖️ Personal Debt</button></li>
+                    <li class="nav-item"><button class="nav-link rounded-pill fw-bold py-2" id="salary-pill-payment">💳 Salary Payment</button></li>
+                    <li class="nav-item"><button class="nav-link rounded-pill fw-bold py-2" id="salary-pill-history">📜 Salary History</button></li>
+                    <li class="nav-item"><button class="nav-link rounded-pill fw-bold py-2" id="salary-pill-reports">📊 Reports</button></li>
+                </ul>
+
+                <!-- SUB-VIEWS CONTAINER -->
+                <div class="salary-sub-views">
+                    
+                    <!-- Sub-view: Employees -->
+                    <div id="salary-subview-employees" class="salary-subview active">
+                        <!-- Employee Dashboard Stats -->
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-3">
+                                <div class="card p-3 rounded-4 border-0 shadow-sm text-center bg-white border-start border-primary border-4">
+                                    <div class="small fw-bold text-muted">Total Employees</div>
+                                    <div class="h4 mb-0 fw-bold text-primary" id="emp-stat-total">0</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card p-3 rounded-4 border-0 shadow-sm text-center bg-white border-start border-success border-4">
+                                    <div class="small fw-bold text-muted">Active</div>
+                                    <div class="h4 mb-0 fw-bold text-success" id="emp-stat-active">0</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card p-3 rounded-4 border-0 shadow-sm text-center bg-white border-start border-danger border-4">
+                                    <div class="small fw-bold text-muted">Inactive</div>
+                                    <div class="h4 mb-0 fw-bold text-danger" id="emp-stat-inactive">0</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card p-3 rounded-4 border-0 shadow-sm text-center bg-white border-start border-warning border-4">
+                                    <div class="small fw-bold text-muted">Monthly Payroll</div>
+                                    <div class="h4 mb-0 fw-bold text-warning" id="emp-stat-payroll">₹0</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Search & Controls -->
+                        <div class="card p-4 border-0 shadow-sm rounded-4 mb-4 bg-white">
+                            <div class="row g-3 align-items-center">
+                                <div class="col-md-6">
+                                    <input type="text" id="emp-search-input" class="form-control border-2 rounded-3" placeholder="🔍 Search employee by name or role...">
+                                </div>
+                                <div class="col-md-3">
+                                    <select id="emp-status-filter" class="form-select border-2 rounded-3">
+                                        <option value="all">All Statuses</option>
+                                        <option value="active" selected>Active</option>
+                                        <option value="inactive">Inactive</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3 text-end">
+                                    <button class="btn btn-primary w-100 rounded-pill py-2.5 fw-bold shadow-sm" id="btn-add-employee-modal">+ Add Employee</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Employees List Table -->
+                        <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-5">
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0 text-center">
+                                    <thead class="bg-light small">
+                                        <tr>
+                                            <th class="ps-4 text-start">Emp ID</th>
+                                            <th>Name</th>
+                                            <th>WhatsApp / Mobile</th>
+                                            <th>Role</th>
+                                            <th>Monthly Salary</th>
+                                            <th>Joining Date</th>
+                                            <th>Status</th>
+                                            <th class="pe-4 text-center">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="employees-table-body">
+                                        <tr>
+                                            <td colspan="8" class="text-center py-4 text-muted">Loading employees...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sub-view: Salary Advance -->
+                    <div id="salary-subview-advance" class="salary-subview d-none">
+                        <div class="row g-4">
+                            <!-- Advance Entry Form -->
+                            <div class="col-lg-4">
+                                <div class="card p-4 rounded-4 border-0 shadow-sm bg-white border-top border-primary border-4">
+                                    <h5 class="fw-bold mb-4 text-primary" id="advance-form-title">Record Salary Advance</h5>
+                                    <form id="salary-advance-form">
+                                        <input type="hidden" id="advance-id">
+                                        <div class="mb-3">
+                                            <label class="small fw-bold text-muted mb-2">EMPLOYEE</label>
+                                            <select id="advance-emp-select" class="form-select border-2 rounded-3" required>
+                                                <option value="">Select Employee</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="small fw-bold text-muted mb-2">ADVANCE DATE</label>
+                                            <input type="date" id="advance-date" class="form-control border-2 rounded-3" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="small fw-bold text-muted mb-2">SALARY MONTH</label>
+                                            <input type="month" id="advance-month" class="form-control border-2 rounded-3" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="small fw-bold text-muted mb-2">AMOUNT (₹)</label>
+                                            <input type="number" id="advance-amount" class="form-control border-2 rounded-3" step="0.01" min="1" placeholder="0.00" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="small fw-bold text-muted mb-2">PAYMENT MODE</label>
+                                            <select id="advance-mode" class="form-select border-2 rounded-3" required>
+                                                <option value="Cash" selected>Cash</option>
+                                                <option value="Bank">Bank</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-4">
+                                            <label class="small fw-bold text-muted mb-2">NOTE</label>
+                                            <input type="text" id="advance-note" class="form-control border-2 rounded-3" placeholder="Reason for advance...">
+                                        </div>
+                                        <div class="d-flex gap-2">
+                                            <button type="submit" class="btn btn-primary flex-grow-1 rounded-pill py-2.5 fw-bold shadow-sm" id="btn-save-advance">Save Advance</button>
+                                            <button type="button" class="btn btn-light border rounded-pill py-2.5 fw-bold shadow-sm d-none" id="btn-cancel-advance">Cancel</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                            <!-- Advance Records List -->
+                            <div class="col-lg-8">
+                                <div class="card p-4 rounded-4 border-0 shadow-sm bg-white">
+                                    <div class="d-flex justify-content-between align-items-center mb-4">
+                                        <h5 class="fw-bold mb-0">Advance History</h5>
+                                        <!-- Month filter -->
+                                        <div style="width: 200px;">
+                                            <input type="month" id="advance-filter-month" class="form-control form-control-sm border-2 rounded-3">
+                                        </div>
+                                    </div>
+                                    <div class="table-responsive">
+                                        <table class="table table-hover align-middle mb-0 text-center">
+                                            <thead class="bg-light small">
+                                                <tr>
+                                                    <th>Date</th>
+                                                    <th>Employee</th>
+                                                    <th>Salary Month</th>
+                                                    <th>Amount</th>
+                                                    <th>Mode</th>
+                                                    <th>Note</th>
+                                                    <th class="pe-4 text-center">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="advances-table-body">
+                                                <tr>
+                                                    <td colspan="7" class="text-center py-4 text-muted">No advance records found.</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sub-view: Personal Debt Records -->
+                    <div id="salary-subview-debt" class="salary-subview d-none">
+                        <div class="row g-4">
+                            <!-- Debt Entry Form -->
+                            <div class="col-lg-4">
+                                <div class="card p-4 rounded-4 border-0 shadow-sm bg-white border-top border-primary border-4">
+                                    <h5 class="fw-bold mb-4 text-primary" id="debt-form-title">Record Personal Debt</h5>
+                                    <p class="text-muted small">⚠️ Note: Personal debt is saved as history only. It is <strong>NOT</strong> included in monthly salary calculation/deductions.</p>
+                                    <form id="personal-debt-form">
+                                        <input type="hidden" id="debt-id">
+                                        <div class="mb-3">
+                                            <label class="small fw-bold text-muted mb-2">EMPLOYEE</label>
+                                            <select id="debt-emp-select" class="form-select border-2 rounded-3" required>
+                                                <option value="">Select Employee</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="small fw-bold text-muted mb-2">DATE</label>
+                                            <input type="date" id="debt-date" class="form-control border-2 rounded-3" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="small fw-bold text-muted mb-2">AMOUNT (₹)</label>
+                                            <input type="number" id="debt-amount" class="form-control border-2 rounded-3" step="0.01" min="1" placeholder="0.00" required>
+                                        </div>
+                                        <div class="mb-4">
+                                            <label class="small fw-bold text-muted mb-2">NOTE</label>
+                                            <input type="text" id="debt-note" class="form-control border-2 rounded-3" placeholder="Debt description details..." required>
+                                        </div>
+                                        <div class="d-flex gap-2">
+                                            <button type="submit" class="btn btn-primary flex-grow-1 rounded-pill py-2.5 fw-bold shadow-sm" id="btn-save-debt">Save Debt</button>
+                                            <button type="button" class="btn btn-light border rounded-pill py-2.5 fw-bold shadow-sm d-none" id="btn-cancel-debt">Cancel</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                            <!-- Debt Records List -->
+                            <div class="col-lg-8">
+                                <div class="card p-4 rounded-4 border-0 shadow-sm bg-white">
+                                    <h5 class="fw-bold mb-4">Personal Debt Records</h5>
+                                    <div class="table-responsive">
+                                        <table class="table table-hover align-middle mb-0 text-center">
+                                            <thead class="bg-light small">
+                                                <tr>
+                                                    <th>Date</th>
+                                                    <th>Employee</th>
+                                                    <th>Amount</th>
+                                                    <th>Note</th>
+                                                    <th class="pe-4 text-center">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="debts-table-body">
+                                                <tr>
+                                                    <td colspan="5" class="text-center py-4 text-muted">No personal debt records found.</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sub-view: Salary Payment -->
+                    <div id="salary-subview-payment" class="salary-subview d-none">
+                        <div class="card p-4 rounded-4 border-0 shadow-sm bg-white border-top border-primary border-4 mb-4">
+                            <h5 class="fw-bold mb-4 text-primary">Process Monthly Salary Payment</h5>
+                            <form id="salary-payment-form">
+                                <div class="row g-3 mb-4">
+                                    <div class="col-md-6">
+                                        <label class="small fw-bold text-muted mb-2">SELECT EMPLOYEE</label>
+                                        <select id="payment-emp-select" class="form-select border-2 rounded-3 p-2.5 shadow-sm" required>
+                                            <option value="">Choose Employee</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="small fw-bold text-muted mb-2">SELECT SALARY MONTH</label>
+                                        <input type="month" id="payment-month" class="form-control border-2 rounded-3 p-2.5 shadow-sm" required>
+                                    </div>
+                                </div>
+
+                                <div class="row g-3 mb-4" id="payment-calculation-area" style="opacity: 0.5; pointer-events: none;">
+                                    <!-- Auto-filled/Calculated Cards -->
+                                    <div class="col-md-4">
+                                        <div class="card p-3 border rounded-3 bg-light text-center h-100">
+                                            <span class="small fw-bold text-muted">Monthly Salary</span>
+                                            <h4 class="fw-bold mt-2 mb-0" id="calc-monthly-salary">₹0</h4>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card p-3 border rounded-3 bg-light text-center h-100">
+                                            <span class="small fw-bold text-danger">Salary Advance (-)</span>
+                                            <h4 class="fw-bold mt-2 mb-0 text-danger" id="calc-salary-advance">₹0</h4>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card p-3 border rounded-3 bg-primary text-white text-center h-100">
+                                            <span class="small fw-bold opacity-75">Net Salary</span>
+                                            <h4 class="fw-bold mt-2 mb-0" id="calc-net-salary">₹0</h4>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row g-3 mb-4">
+                                    <div class="col-md-6">
+                                        <label class="small fw-bold text-muted mb-2">CASH PAID (₹)</label>
+                                        <input type="number" id="payment-cash-paid" class="form-control border-2 rounded-3" step="0.01" min="0" placeholder="0.00" value="0">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="small fw-bold text-muted mb-2">BANK PAID (₹)</label>
+                                        <input type="number" id="payment-bank-paid" class="form-control border-2 rounded-3" step="0.01" min="0" placeholder="0.00" value="0">
+                                    </div>
+                                </div>
+
+                                <div class="row g-3 mb-4 p-3 bg-light rounded-4 border">
+                                    <div class="col-4 text-center">
+                                        <small class="text-muted fw-bold">Total Paid</small>
+                                        <div class="h4 text-success mt-1 fw-bold" id="preview-payment-paid">₹0</div>
+                                    </div>
+                                    <div class="col-4 text-center">
+                                        <small class="text-muted fw-bold">Balance Pending</small>
+                                        <div class="h4 text-danger mt-1 fw-bold" id="preview-payment-balance">₹0</div>
+                                    </div>
+                                    <div class="col-4 text-center">
+                                        <small class="text-muted fw-bold">Payment Status</small>
+                                        <div class="mt-1"><span class="badge bg-secondary px-3 py-2 fs-6 rounded-pill" id="preview-payment-status">Pending</span></div>
+                                    </div>
+                                </div>
+
+                                <div class="row g-3 mb-4">
+                                    <div class="col-md-6">
+                                        <label class="small fw-bold text-muted mb-2">PAYMENT DATE</label>
+                                        <input type="date" id="payment-date" class="form-control border-2 rounded-3" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="small fw-bold text-muted mb-2">PAYMENT NOTES</label>
+                                        <input type="text" id="payment-notes" class="form-control border-2 rounded-3" placeholder="Receipt notes, bank reference number...">
+                                    </div>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary w-100 rounded-pill py-3 fw-bold shadow-lg" id="btn-save-payment" disabled>Save & Generate Salary Slip</button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Sub-view: Salary History -->
+                    <div id="salary-subview-history" class="salary-subview d-none">
+                        <!-- History Stats Cards -->
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-3">
+                                <div class="card p-3 rounded-4 border-0 shadow-sm text-center bg-white border-start border-primary border-4">
+                                    <div class="small fw-bold text-muted">Total Paid Salary</div>
+                                    <div class="h4 mb-0 fw-bold text-primary" id="history-stat-expense">₹0</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card p-3 rounded-4 border-0 shadow-sm text-center bg-white border-start border-success border-4">
+                                    <div class="small fw-bold text-muted">Total Cash Paid</div>
+                                    <div class="h4 mb-0 fw-bold text-success" id="history-stat-cash">₹0</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card p-3 rounded-4 border-0 shadow-sm text-center bg-white border-start border-info border-4">
+                                    <div class="small fw-bold text-muted">Total Bank Paid</div>
+                                    <div class="h4 mb-0 fw-bold text-info" id="history-stat-bank">₹0</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card p-3 rounded-4 border-0 shadow-sm text-center bg-white border-start border-danger border-4">
+                                    <div class="small fw-bold text-muted">Pending Balance</div>
+                                    <div class="h4 mb-0 fw-bold text-danger" id="history-stat-balance">₹0</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Filters -->
+                        <div class="card p-4 border-0 shadow-sm rounded-4 mb-4 bg-white">
+                            <div class="row g-3 align-items-center">
+                                <div class="col-md-3">
+                                    <label class="small fw-bold text-muted mb-1">Employee</label>
+                                    <select id="history-filter-emp" class="form-select border-2 rounded-3">
+                                        <option value="all">All Employees</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="small fw-bold text-muted mb-1">Salary Month</label>
+                                    <input type="month" id="history-filter-month" class="form-control border-2 rounded-3">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="small fw-bold text-muted mb-1">Payment Status</label>
+                                    <select id="history-filter-status" class="form-select border-2 rounded-3">
+                                        <option value="all">All Statuses</option>
+                                        <option value="Paid">Paid</option>
+                                        <option value="Partial">Partial</option>
+                                        <option value="Pending">Pending</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3 d-flex align-items-end pt-3">
+                                    <button class="btn btn-outline-secondary w-100 rounded-pill py-2.5 fw-bold shadow-sm" id="btn-clear-history-filters">Reset Filters</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Salary History Table -->
+                        <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-5">
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0 text-center">
+                                    <thead class="bg-light small">
+                                        <tr>
+                                            <th>Month</th>
+                                            <th>Employee</th>
+                                            <th>Monthly Salary</th>
+                                            <th>Advance Deduct</th>
+                                            <th>Net Salary</th>
+                                            <th>Total Paid</th>
+                                            <th>Balance</th>
+                                            <th>Status</th>
+                                            <th>Paid Date</th>
+                                            <th class="pe-4 text-center">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="history-table-body">
+                                        <tr>
+                                            <td colspan="10" class="text-center py-4 text-muted">No salary payment history found.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sub-view: Reports -->
+                    <div id="salary-subview-reports" class="salary-subview d-none">
+                        <div class="card p-4 border-0 shadow-sm rounded-4 mb-4 bg-white border-top border-primary border-4">
+                            <h5 class="fw-bold mb-4 text-primary">Monthly Payroll Report</h5>
+                            <div class="row g-3 align-items-end mb-4">
+                                <div class="col-md-6 col-lg-4">
+                                    <label class="small fw-bold text-muted mb-2">SELECT REPORT MONTH</label>
+                                    <input type="month" id="report-selected-month" class="form-control border-2 rounded-3 p-2.5 shadow-sm" required>
+                                </div>
+                                <div class="col-md-6 col-lg-4">
+                                    <button class="btn btn-primary w-100 rounded-pill py-2.5 shadow-sm fw-bold" id="btn-generate-salary-report">🔍 Generate Report</button>
+                                </div>
+                                <div class="col-md-12 col-lg-4 text-end" id="report-download-btn-area" style="display: none;">
+                                    <button class="btn btn-danger w-100 rounded-pill py-2.5 shadow-sm fw-bold" id="btn-download-monthly-report-pdf">📥 Download Monthly PDF Report</button>
+                                </div>
+                            </div>
+
+                            <div id="salary-report-preview-container" style="display: none;">
+                                <hr class="my-4">
+                                <h4 class="fw-bold mb-4 text-center">Payroll Summary for <span id="report-month-title">Month</span></h4>
+                                
+                                <div class="row g-3 mb-4">
+                                    <div class="col-md-4 col-lg-3">
+                                        <div class="card p-3 rounded-4 border bg-light text-center h-100">
+                                            <div class="small fw-bold text-muted">Total Employees</div>
+                                            <div class="h4 mb-0 fw-bold text-dark mt-2" id="rep-stat-employees">0</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 col-lg-3">
+                                        <div class="card p-3 rounded-4 border bg-light text-center h-100">
+                                            <div class="small fw-bold text-muted">Total Monthly Salary</div>
+                                            <div class="h4 mb-0 fw-bold text-dark mt-2" id="rep-stat-base-salary">₹0</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 col-lg-3">
+                                        <div class="card p-3 rounded-4 border bg-light text-center h-100">
+                                            <div class="small fw-bold text-muted">Total Advances Deducted</div>
+                                            <div class="h4 mb-0 fw-bold text-danger mt-2" id="rep-stat-advances">₹0</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 col-lg-3">
+                                        <div class="card p-3 rounded-4 border bg-light text-center h-100">
+                                            <div class="small fw-bold text-muted">Total Net Salary</div>
+                                            <div class="h4 mb-0 fw-bold text-primary mt-2" id="rep-stat-net-salary">₹0</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 col-lg-3">
+                                        <div class="card p-3 rounded-4 border bg-light text-center h-100">
+                                            <div class="small fw-bold text-muted">Total Cash Paid</div>
+                                            <div class="h4 mb-0 fw-bold text-success mt-2" id="rep-stat-cash-paid">₹0</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 col-lg-3">
+                                        <div class="card p-3 rounded-4 border bg-light text-center h-100">
+                                            <div class="small fw-bold text-muted">Total Bank Paid</div>
+                                            <div class="h4 mb-0 fw-bold text-info mt-2" id="rep-stat-bank-paid">₹0</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 col-lg-3">
+                                        <div class="card p-3 rounded-4 border bg-light text-center h-100">
+                                            <div class="small fw-bold text-muted">Pending Balance</div>
+                                            <div class="h4 mb-0 fw-bold text-danger mt-2" id="rep-stat-balance-pending">₹0</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 col-lg-3">
+                                        <div class="card p-3 rounded-4 border bg-light text-center h-100">
+                                            <div class="small fw-bold text-muted">Status (Paid / Partial / Pending)</div>
+                                            <div class="mt-2 text-center small fw-bold">
+                                                <span class="text-success">Paid: <span id="rep-stat-paid-count">0</span></span> | 
+                                                <span class="text-warning">Part: <span id="rep-stat-partial-count">0</span></span> | 
+                                                <span class="text-danger">Pend: <span id="rep-stat-pending-count">0</span></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="table-responsive rounded-4 border shadow-sm mt-4">
+                                    <table class="table table-hover align-middle mb-0 text-center">
+                                        <thead class="bg-light small">
+                                            <tr>
+                                                <th>Emp ID</th>
+                                                <th>Employee Name</th>
+                                                <th>Base Salary</th>
+                                                <th>Advances Deducted</th>
+                                                <th>Net Salary</th>
+                                                <th>Cash Paid</th>
+                                                <th>Bank Paid</th>
+                                                <th>Total Paid</th>
+                                                <th>Balance</th>
+                                                <th>Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="report-table-body">
+                                            <!-- Dynamically generated report rows -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ADD/EDIT EMPLOYEE MODAL (Self-contained in salary-view) -->
+                <div class="modal fade" id="salary-employee-modal" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content border-0 shadow-lg rounded-5">
+                            <form id="salary-employee-form">
+                                <div class="modal-body p-5">
+                                    <h3 class="fw-bold mb-4 text-center" id="employee-modal-title">Add Employee Profile</h3>
+                                    <input type="hidden" id="emp-db-id">
+                                    
+                                    <div class="mb-3">
+                                        <label class="small fw-bold text-muted mb-2">EMPLOYEE ID (AUTO-GENERATED)</label>
+                                        <input type="text" id="emp-id" class="form-control border-2 rounded-3 bg-light" readonly>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="small fw-bold text-muted mb-2">EMPLOYEE NAME</label>
+                                        <input type="text" id="emp-name" class="form-control border-2 rounded-3" placeholder="e.g. John Doe" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="small fw-bold text-muted mb-2">WHATSAPP / MOBILE NUMBER</label>
+                                        <input type="tel" id="emp-phone" class="form-control border-2 rounded-3" placeholder="e.g. +919876543210" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="small fw-bold text-muted mb-2">ROLE / JOB POSITION</label>
+                                        <input type="text" id="emp-role" class="form-control border-2 rounded-3" placeholder="e.g. Cook, Cashier..." required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="small fw-bold text-muted mb-2">MONTHLY SALARY (₹)</label>
+                                        <input type="number" id="emp-salary" class="form-control border-2 rounded-3" step="0.01" min="0" placeholder="e.g. 15000" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="small fw-bold text-muted mb-2">JOINING DATE</label>
+                                        <input type="date" id="emp-joining" class="form-control border-2 rounded-3" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="small fw-bold text-muted mb-2">STATUS</label>
+                                        <select id="emp-status" class="form-select border-2 rounded-3">
+                                            <option value="Active" selected>Active</option>
+                                            <option value="Inactive">Inactive</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="small fw-bold text-muted mb-2">NOTES</label>
+                                        <textarea id="emp-notes" class="form-control border-2 rounded-3" placeholder="Any extra information..." rows="2"></textarea>
+                                    </div>
+                                </div>
+                                <div class="modal-footer border-0 p-4 pt-0">
+                                    <button type="submit" class="btn btn-primary w-100 py-3 rounded-pill fw-bold shadow-lg" id="btn-save-employee">Save Profile</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SALARY SLIP PREVIEW MODAL (Used to view PDF/Receipt and send Whatsapp) -->
+                <div class="modal fade" id="salary-slip-modal" tabindex="-1">
+                    <div class="modal-dialog modal-lg modal-dialog-centered">
+                        <div class="modal-content border-0 shadow-lg rounded-5">
+                            <div class="modal-body p-4 p-md-5">
+                                <h3 class="fw-bold mb-4 text-center">Payroll Statement Saved</h3>
+                                <div class="p-3 bg-light rounded-4 mb-4 border text-center">
+                                    <h6 class="fw-bold mb-1">Employee: <span id="slip-preview-emp-name" class="text-primary">...</span></h6>
+                                    <span class="small text-muted">Month: <span id="slip-preview-month">...</span> | Net Salary: <span id="slip-preview-net" class="fw-bold text-dark">₹0</span></span>
+                                </div>
+                                <div class="d-grid gap-3 col-md-8 mx-auto">
+                                    <button id="btn-slip-download-pdf" class="btn btn-danger btn-lg py-3 rounded-pill fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2">
+                                        📄 Download PDF Salary Slip
+                                    </button>
+                                    <button id="btn-slip-send-whatsapp" class="btn btn-success btn-lg py-3 rounded-pill fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2">
+                                        💬 Send via WhatsApp
+                                    </button>
+                                    <button class="btn btn-light border py-2.5 rounded-pill fw-bold mt-2" data-bs-dismiss="modal">Close</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </main>
 
         <!-- Modals -->
@@ -547,45 +1149,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-    <script type="module" src="firebase-app.js?v=6"></script>
-    <script type="module" src="email-alerts.js?v=6"></script>
-    <script type="module" src="main.js?v=6"></script>
-    <!-- Floating Calculator -->
-    <button id="calculator-toggle" class="btn btn-primary rounded-circle shadow-lg" style="position: fixed; bottom: 20px; right: 20px; width: 56px; height: 56px; z-index: 9999; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; border: 3px solid rgba(255,255,255,0.2);">🧮</button>
+    <script type="module" src="firebase-app.js?v=10"></script>
+    <script type="module" src="email-alerts.js?v=10"></script>
+    <script type="module" src="main.js?v=10"></script>
+    <script type="module" src="salary-payroll.js?v=10"></script>
 
-    <div id="calculator-panel" class="card shadow-lg border-0" style="position: fixed; bottom: 85px; right: 20px; width: 280px; z-index: 9999; display: none; border-radius: 24px; overflow: hidden; background: #ffffff;">
-        <div class="p-3 bg-primary text-white d-flex justify-content-between align-items-center" id="calc-header" style="cursor: move; user-select: none;">
-            <span class="fw-bold small">Nujoom Calc (Drag Header)</span>
-            <button class="btn-close btn-close-white" onclick="document.getElementById('calculator-panel').style.display='none'"></button>
-        </div>
-        <div class="p-3">
-            <div id="calc-history" class="text-muted text-end small mb-1" style="height: 20px; overflow: hidden;"></div>
-            <input type="text" id="calc-display" class="form-control form-control-lg text-end fw-bold border-0 bg-light mb-3" style="font-size: 1.5rem; color: var(--primary);" readonly value="0">
-            <div class="row g-2" id="calc-buttons">
-                <div class="col-3"><button class="btn btn-light w-100 py-2 rounded-3 fw-bold text-danger" onclick="clearCalc()">C</button></div>
-                <div class="col-3"><button class="btn btn-light w-100 py-2 rounded-3 fw-bold" onclick="appendCalc('/')">÷</button></div>
-                <div class="col-3"><button class="btn btn-light w-100 py-2 rounded-3 fw-bold" onclick="appendCalc('*')">×</button></div>
-                <div class="col-3"><button class="btn btn-light w-100 py-2 rounded-3 fw-bold" onclick="backspaceCalc()">⌫</button></div>
-                
-                <div class="col-3"><button class="btn btn-light w-100 py-2 rounded-3 fw-bold" onclick="appendCalc('7')">7</button></div>
-                <div class="col-3"><button class="btn btn-light w-100 py-2 rounded-3 fw-bold" onclick="appendCalc('8')">8</button></div>
-                <div class="col-3"><button class="btn btn-light w-100 py-2 rounded-3 fw-bold" onclick="appendCalc('9')">9</button></div>
-                <div class="col-3"><button class="btn btn-primary w-100 py-2 rounded-3 fw-bold" onclick="appendCalc('-')">-</button></div>
-                
-                <div class="col-3"><button class="btn btn-light w-100 py-2 rounded-3 fw-bold" onclick="appendCalc('4')">4</button></div>
-                <div class="col-3"><button class="btn btn-light w-100 py-2 rounded-3 fw-bold" onclick="appendCalc('5')">5</button></div>
-                <div class="col-3"><button class="btn btn-light w-100 py-2 rounded-3 fw-bold" onclick="appendCalc('6')">6</button></div>
-                <div class="col-3"><button class="btn btn-primary w-100 py-2 rounded-3 fw-bold" onclick="appendCalc('+')">+</button></div>
-                
-                <div class="col-3"><button class="btn btn-light w-100 py-2 rounded-3 fw-bold" onclick="appendCalc('1')">1</button></div>
-                <div class="col-3"><button class="btn btn-light w-100 py-2 rounded-3 fw-bold" onclick="appendCalc('2')">2</button></div>
-                <div class="col-3"><button class="btn btn-light w-100 py-2 rounded-3 fw-bold" onclick="appendCalc('3')">3</button></div>
-                <div class="col-3" style="grid-row: span 2;"><button class="btn btn-success w-100 h-100 py-2 rounded-3 fw-bold" onclick="runCalc()">=</button></div>
-                
-                <div class="col-6"><button class="btn btn-light w-100 py-2 rounded-3 fw-bold" onclick="appendCalc('0')">0</button></div>
-                <div class="col-3"><button class="btn btn-light w-100 py-2 rounded-3 fw-bold" onclick="appendCalc('.')">.</button></div>
-            </div>
-        </div>
-    </div>
 </body>
 </html>

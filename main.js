@@ -153,6 +153,14 @@ async function deleteBranch(n) {
 }
 
 async function switchView(v) {
+    if (v === 'profit' || v === 'sponsor') {
+        const viewName = v === 'profit' ? 'Partner Shares' : 'Sponsor Manager';
+        const code = prompt(`Enter secret code to view ${viewName}:`);
+        if (code !== 'Nujoom@61') {
+            alert("Incorrect secret code!");
+            return;
+        }
+    }
     document.querySelectorAll('.view').forEach(x => x.classList.remove('active'));
     const targetId = v.endsWith('-view') ? v : v + '-view';
     const target = document.getElementById(targetId);
@@ -164,9 +172,9 @@ async function switchView(v) {
         'sponsor': 'Sponsor Manager (إدارة الكفلاء)',
         'employee-docs': 'Employee Documents', 
         'company-docs': 'Company Documents', 
-        'month-detail': 'Monthly Ledger', 
         'settings': 'Alert Settings', 
-        'trash': 'Trash' 
+        'trash': 'Trash',
+        'salary': 'Employee Salary'
     };
     document.getElementById('page-title').textContent = titleMap[v] || 'Nujoom Ledger';
     
@@ -188,6 +196,9 @@ async function switchView(v) {
     if(v === 'profit') renderProfitShares();
     if(v === 'sponsor') await loadSponsors();
     if(v === 'trash') renderTrash();
+    if(v === 'salary') {
+        if (window.initSalaryPayroll) window.initSalaryPayroll();
+    }
     window.scrollTo(0,0);
 }
 
@@ -472,6 +483,7 @@ function setupListeners() {
     document.querySelectorAll('.nav-trigger-profit').forEach(el => el.onclick = () => switchView('profit'));
     document.querySelectorAll('.nav-trigger-sponsor').forEach(el => el.onclick = () => switchView('sponsor'));
     document.querySelectorAll('.nav-trigger-employee').forEach(el => el.onclick = () => switchView('employee-docs'));
+    document.querySelectorAll('.nav-trigger-salary').forEach(el => el.onclick = () => switchView('salary'));
     document.querySelectorAll('.nav-trigger-company').forEach(el => el.onclick = () => switchView('company-docs'));
     document.querySelectorAll('.nav-trigger-settings').forEach(el => el.onclick = () => switchView('settings'));
     document.querySelectorAll('.nav-trigger-trash').forEach(el => el.onclick = () => switchView('trash'));
@@ -581,16 +593,11 @@ function setupListeners() {
         };
     }
 
-    const calcToggle = document.getElementById('calculator-toggle');
-    if (calcToggle) {
-        calcToggle.onclick = () => {
-            const panel = document.getElementById('calculator-panel');
-            if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-        };
-    }
+
 
     safeSetClick('back-to-dashboard', () => switchView('dashboard'));
     safeSetClick('btn-print-ledger', () => window.print());
+    safeSetClick('dash-get-report-btn', () => generateCustomReport());
     
     const addEntryBtn = document.getElementById('add-entry-btn');
     if (addEntryBtn) {
@@ -840,61 +847,7 @@ async function permanentDelete(id) {
     }
 }
 
-// Calculator Logic
-let calcExpression = "";
-function appendCalc(v) {
-    const d = document.getElementById('calc-display');
-    if (calcExpression === "" && "/*+-.".includes(v)) return;
-    calcExpression += v;
-    d.value = calcExpression;
-}
-function clearCalc() {
-    calcExpression = "";
-    document.getElementById('calc-display').value = "0";
-    document.getElementById('calc-history').textContent = "";
-}
-function backspaceCalc() {
-    calcExpression = calcExpression.slice(0, -1);
-    document.getElementById('calc-display').value = calcExpression || "0";
-}
-function runCalc() {
-    try {
-        const result = eval(calcExpression);
-        document.getElementById('calc-history').textContent = calcExpression + " =";
-        calcExpression = result.toString();
-        document.getElementById('calc-display').value = calcExpression;
-    } catch (e) {
-        alert("Invalid calculation");
-        clearCalc();
-    }
-}
 
-// Draggable Calculator Logic
-const calcPanel = document.getElementById('calculator-panel');
-const calcHeader = document.getElementById('calc-header');
-
-if (calcHeader && calcPanel) {
-    let isDragging = false;
-    let offsetX, offsetY;
-
-    calcHeader.onmousedown = function(e) {
-        isDragging = true;
-        offsetX = e.clientX - calcPanel.getBoundingClientRect().left;
-        offsetY = e.clientY - calcPanel.getBoundingClientRect().top;
-        calcPanel.style.bottom = 'auto'; // Reset bottom for absolute positioning
-        calcPanel.style.right = 'auto';
-    };
-
-    document.onmousemove = function(e) {
-        if (!isDragging) return;
-        calcPanel.style.left = (e.clientX - offsetX) + 'px';
-        calcPanel.style.top = (e.clientY - offsetY) + 'px';
-    };
-
-    document.onmouseup = function() {
-        isDragging = false;
-    };
-}
 
 // Profit Share Logic
 function renderProfitShares() {
@@ -1355,6 +1308,206 @@ async function downloadSponsorPDF(from, to) {
     }
 }
 
+async function generateCustomReport() {
+    const from = document.getElementById('dash-date-from').value;
+    const to = document.getElementById('dash-date-to').value;
+    if (!from || !to) { alert('Please select date range'); return; }
+
+    const entries = allData[currentBranch] || [];
+    const filtered = entries.filter(e => e.date >= from && e.date <= to)
+                           .sort((a,b) => new Date(a.date) - new Date(b.date));
+
+    const preview = document.getElementById('dash-report-preview');
+    if (filtered.length === 0) {
+        preview.style.display = 'block';
+        preview.innerHTML = `<div class="alert alert-warning text-center fw-bold rounded-4 shadow-sm p-4">No entries found for the selected range.</div>`;
+        return;
+    }
+
+    let cbk=0, ccs=0, cin=0, tcas=0, tcb=0, tba=0, tbb=0;
+    const summary = {};
+
+    let tableRows = '';
+    filtered.forEach(e => {
+        const c = calculateEntry(e);
+        cbk += c.bk;
+        ccs += c.cas;
+        cin += c.inc;
+        tcas += c.cas;
+        tcb += c.cb;
+        tba += c.ba;
+        tbb += c.bb;
+
+        if (e.otherExpenses) {
+            e.otherExpenses.forEach(x => {
+                const type = x.type || 'Other';
+                if (!summary[type]) summary[type] = { total: 0, date: null };
+                summary[type].total += (Number(x.amt) || 0);
+                if (e.date && (!summary[type].date || new Date(e.date) > new Date(summary[type].date))) {
+                    summary[type].date = e.date;
+                }
+            });
+        }
+
+        tableRows += `
+            <tr>
+                <td class="ps-4"><strong>${e.date}</strong></td>
+                <td>₹${c.bk.toLocaleString()}</td>
+                <td>₹${c.cas.toLocaleString()}</td>
+                <td>₹${c.ba.toLocaleString()}</td>
+                <td>₹${c.cb.toLocaleString()}</td>
+                <td>₹${c.bb.toLocaleString()}</td>
+                <td class="text-success fw-bold">₹${c.inc.toLocaleString()}</td>
+                <td>₹${cbk.toLocaleString()}</td>
+                <td>₹${ccs.toLocaleString()}</td>
+                <td class="text-primary fw-bold">₹${cin.toLocaleString()}</td>
+            </tr>
+        `;
+    });
+
+    const netGrowth = cin - cbk;
+
+    let expensesGridHtml = '';
+    const summaryEntries = Object.entries(summary);
+    if (summaryEntries.length > 0) {
+        expensesGridHtml = `
+            <div class="card border-0 shadow-sm p-4 mt-4">
+                <h5 class="fw-bold mb-4 text-muted">Expenses Analysis (تحليل المصروفات)</h5>
+                <div class="row g-3">
+                    ${summaryEntries.map(([k, v]) => `
+                        <div class="col-6 col-md-3 mb-3">
+                            <div class="card p-3 border-0 bg-light rounded-4 shadow-sm h-100">
+                                <div class="fw-bold text-dark text-truncate mb-1" title="${k}">${k}</div>
+                                <div class="text-muted small mb-2" style="font-size: 0.75rem;">Last: ${v.date || 'No date'}</div>
+                                <div class="h6 mb-0 text-primary fw-bold">₹${v.total.toLocaleString()}</div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    preview.style.display = 'block';
+    preview.innerHTML = `
+        <div class="border-top pt-4">
+            <div class="d-flex justify-content-end mb-3 no-print-btn">
+                <button class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm" onclick="downloadCustomRangePDF('${from}','${to}')">📥 Download PDF Report</button>
+            </div>
+            
+            <div class="card border-0 shadow-lg rounded-5 overflow-hidden p-4 p-md-5 bg-white text-dark" id="dash-report-card" style="font-family: 'Outfit', sans-serif;">
+                <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
+                    <div>
+                        <h4 class="fw-bold mb-1 text-primary">${currentBranch}</h4>
+                        <p class="text-muted small mb-0">Custom Ledger Report | Period: ${from} to ${to}</p>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge bg-primary px-3 py-2 rounded-pill shadow-sm fs-6">Net: ₹${netGrowth.toLocaleString()}</span>
+                    </div>
+                </div>
+
+                <div class="row g-4 mb-4">
+                    <div class="col-lg-6">
+                        <div class="card balance-card p-4 shadow-sm" style="background: linear-gradient(135deg, #059669, #10b981); border: none; border-radius: 20px;">
+                            <h6 class="text-white-50 small fw-bold mb-4">Cash Ledger</h6>
+                            <div class="row g-2 text-center text-white">
+                                <div class="col-4 balance-item"><small>In</small><div class="fw-bold">₹${tcas.toLocaleString()}</div></div>
+                                <div class="col-4 balance-item"><small>Out</small><div class="fw-bold">₹${tcb.toLocaleString()}</div></div>
+                                <div class="col-4 balance-item"><small>Bal</small><div class="h5 fw-bold mb-0">₹${(tcas - tcb).toLocaleString()}</div></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <div class="card balance-card p-4 shadow-sm" style="background: linear-gradient(135deg, #4f46e5, #6366f1); border: none; border-radius: 20px;">
+                            <h6 class="text-white-50 small fw-bold mb-4">Bank Ledger</h6>
+                            <div class="row g-2 text-center text-white">
+                                <div class="col-4 balance-item"><small>In</small><div class="fw-bold">₹${tba.toLocaleString()}</div></div>
+                                <div class="col-4 balance-item"><small>Out</small><div class="fw-bold">₹${tbb.toLocaleString()}</div></div>
+                                <div class="col-4 balance-item"><small>Bal</small><div class="h5 fw-bold mb-0">₹${(tba - tbb).toLocaleString()}</div></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0 text-center">
+                            <thead class="bg-light small">
+                                <tr>
+                                    <th class="ps-4 text-start">Date</th>
+                                    <th>BILL</th>
+                                    <th>CAS</th>
+                                    <th>BA</th>
+                                    <th>CB</th>
+                                    <th>BB</th>
+                                    <th>INC</th>
+                                    <th>C.BILL</th>
+                                    <th>C.CAS</th>
+                                    <th>C.INC</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${tableRows}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                ${expensesGridHtml}
+            </div>
+        </div>
+    `;
+
+    preview.scrollIntoView({ behavior: 'smooth' });
+}
+
+async function downloadCustomRangePDF(from, to) {
+    const previewElement = document.getElementById('dash-report-card');
+    if (!previewElement) {
+        alert("Please generate the report preview first.");
+        return;
+    }
+    
+    console.log("📸 Capturing custom ledger report for PDF...");
+    
+    try {
+        const canvas = await html2canvas(previewElement, {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            backgroundColor: "#ffffff"
+        });
+
+        const imgData = canvas.toDataURL('image/png');
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        
+        const imgProps = pdf.getImageProperties(imgData);
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+        
+        let position = 0;
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+        let heightLeft = pdfHeight - pageHeight;
+        
+        while (heightLeft > 0) {
+            position = - (pdfHeight - heightLeft);
+            pdf.addPage();
+            pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+            heightLeft -= pageHeight;
+        }
+
+        const fileName = `Ledger_Report_${currentBranch.replace(/\s+/g,'_')}_${from}_to_${to}.pdf`;
+        pdf.save(fileName);
+        console.log("✅ Custom Range PDF Downloaded:", fileName);
+    } catch (error) {
+        console.error("❌ PDF Generation Error:", error);
+        alert("Failed to generate PDF. Please try again.");
+    }
+}
+
 function addSponsorDeductionRow(t='', a='') { 
     const div = document.createElement('div'); 
     div.className = 'sp-deduction-row d-flex gap-2 align-items-center mb-2'; 
@@ -1368,13 +1521,15 @@ function addSponsorDeductionRow(t='', a='') {
 
 window.addSponsorDeductionRow = addSponsorDeductionRow;
 window.openEditSponsorModal = openEditSponsorModal;
+window.generateCustomReport = generateCustomReport;
+window.downloadCustomRangePDF = downloadCustomRangePDF;
 window.downloadSponsorPDF = downloadSponsorPDF; window.generateSponsorReport = generateSponsorReport; window.deleteSponsorTx = deleteSponsorTx;
 window.printShare = printShare; window.downloadShare = downloadShare;
 window.printAllShares = printAllShares; window.downloadAllShares = downloadAllShares;
 window.editEntry = editEntry; window.deleteEntry = deleteEntry; 
 window.deleteDoc = deleteDoc; window.editDoc = editDoc; window.addExpenseRow = addExpenseRow; window.restoreTrash = restoreTrash; window.permanentDelete = permanentDelete;
 window.refreshSponsorUI = refreshSponsorUI;
-window.appendCalc = appendCalc; window.clearCalc = clearCalc; window.backspaceCalc = backspaceCalc; window.runCalc = runCalc;
+
 
 // Initialize immediately since this is a module
 setupListeners();
