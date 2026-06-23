@@ -1,11 +1,13 @@
 // main.js
 let branchPartners = [];
+let partnerExpenses = {};
 
 let allData = {};
 let documents = [];
 let sponsors = [];
 let activeSponsorId = null;
 let sponsorTransactions = [];
+let editingPartnerId = null;
 let currentBranch = localStorage.getItem('nujoom_current_branch') || null;
 let editingId = null, editingDocId = null, activeDocType = 'employee', selectedMonth = null;
 const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -186,7 +188,7 @@ async function switchView(v) {
 
     if(v.includes('dashboard')) renderDashboard();
     if(v.includes('docs')) { const type = v.includes('employee') ? 'employee' : 'company'; activeDocType = type; renderDocuments(type); }
-    if(v === 'profit') { await loadBranchPartners(currentBranch); renderProfitShares(); }
+    if(v === 'profit') { await loadBranchPartners(currentBranch); await loadPartnerExpensesForPeriod(); renderProfitShares(); }
     if(v === 'sponsor') await loadSponsors();
     if(v === 'trash') renderTrash();
     if(v === 'salary') {
@@ -613,8 +615,15 @@ function setupListeners() {
     ['profit-total-input', 'profit-month', 'profit-year'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
-            el.addEventListener('input', renderProfitShares);
-            el.addEventListener('change', renderProfitShares);
+            if (id === 'profit-total-input') {
+                el.addEventListener('input', renderProfitShares);
+                el.addEventListener('change', renderProfitShares);
+            } else {
+                el.addEventListener('change', async () => {
+                    await loadPartnerExpensesForPeriod();
+                    renderProfitShares();
+                });
+            }
         }
     });
 
@@ -639,6 +648,11 @@ function setupListeners() {
     const addPartnerForm = document.getElementById('add-partner-form');
     if (addPartnerForm) {
         addPartnerForm.onsubmit = handleAddPartnerFormSubmit;
+    }
+
+    const cancelPartnerEditBtn = document.getElementById('partner-cancel-edit-btn');
+    if (cancelPartnerEditBtn) {
+        cancelPartnerEditBtn.onclick = resetPartnerForm;
     }
 
     console.log("✅ Event Listeners Ready");
@@ -848,6 +862,43 @@ async function permanentDelete(id) {
 
 
 // Profit Share Logic
+function getProfitPeriodKey() {
+    const month = document.getElementById('profit-month')?.value || monthNames[new Date().getMonth()];
+    const year = document.getElementById('profit-year')?.value || new Date().getFullYear();
+    return `${year}-${month}`;
+}
+
+async function loadPartnerExpensesForPeriod() {
+    partnerExpenses = {};
+    if (!window.fb || !window.fb.auth.currentUser || !currentBranch) return;
+
+    const uid = window.fb.auth.currentUser.uid;
+    const periodKey = getProfitPeriodKey();
+    const expenseRef = window.fb.doc(window.fb.db, `users/${uid}/branches/${currentBranch}/partnerExpenses`, periodKey);
+    const expenseSnap = await window.fb.getDoc(expenseRef);
+
+    if (expenseSnap.exists()) {
+        partnerExpenses = expenseSnap.data().expenses || {};
+    }
+}
+
+async function savePartnerExpense(partnerId, value) {
+    const expense = Math.max(0, parseFloat(value) || 0);
+    partnerExpenses[partnerId] = expense;
+    renderProfitShares();
+
+    if (!window.fb || !window.fb.auth.currentUser || !currentBranch) return;
+
+    const uid = window.fb.auth.currentUser.uid;
+    const periodKey = getProfitPeriodKey();
+    await window.fb.setDoc(window.fb.doc(window.fb.db, `users/${uid}/branches/${currentBranch}/partnerExpenses`, periodKey), {
+        branch: currentBranch,
+        period: periodKey,
+        expenses: partnerExpenses,
+        updatedAt: Date.now()
+    });
+}
+
 function renderProfitShares() {
     const profit = parseFloat(document.getElementById('profit-total-input').value) || 0;
     const month = document.getElementById('profit-month').value;
@@ -868,6 +919,8 @@ function renderProfitShares() {
 
     branchPartners.forEach(p => {
         const amt = profit * (p.pct / 100);
+        const expense = Number(partnerExpenses[p.id]) || 0;
+        const netAmt = Math.max(0, amt - expense);
         const col = document.createElement('div');
         col.className = 'col-md-6 col-lg-4';
         col.innerHTML = `
@@ -887,15 +940,26 @@ function renderProfitShares() {
                     <span class="badge rounded-pill bg-light text-primary border" style="color: var(--primary) !important; border-color: var(--border-color) !important;">${p.pct}%</span>
                 </div>
                 <hr class="opacity-10 my-3">
-                <div class="d-flex justify-content-between align-items-end mb-4">
-                    <div class="small text-muted fw-bold" style="font-size: 9px; letter-spacing: 1px;">MONTHLY SHARE</div>
-                    <div class="h4 mb-0 fw-bold text-main">
+                <div class="d-flex justify-content-between align-items-end mb-3">
+                    <div class="small text-muted fw-bold" style="font-size: 9px; letter-spacing: 1px;">GROSS SHARE</div>
+                    <div class="h5 mb-0 fw-bold text-main">
                         <span class="small fw-normal me-1" style="font-size: 12px; color: var(--primary);">Rs.</span>${amt.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})}
                     </div>
                 </div>
+                <label class="small text-muted fw-bold mb-1" style="font-size: 9px; letter-spacing: 1px;">PARTNER EXPENSE</label>
+                <div class="input-group input-group-sm mb-3">
+                    <span class="input-group-text bg-light border-2 fw-bold">Rs.</span>
+                    <input type="number" class="form-control border-2" min="0" step="0.01" value="${expense || ''}" placeholder="0.00" onchange="savePartnerExpense('${p.id}', this.value)">
+                </div>
+                <div class="d-flex justify-content-between align-items-end mb-4 p-3 rounded-3" style="background: #f8fafc; border: 1px solid var(--border-color);">
+                    <div class="small text-muted fw-bold" style="font-size: 9px; letter-spacing: 1px;">NET PAYABLE</div>
+                    <div class="h4 mb-0 fw-bold text-success">
+                        <span class="small fw-normal me-1" style="font-size: 12px;">Rs.</span>${netAmt.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})}
+                    </div>
+                </div>
                 <div class="row g-2">
-                    <div class="col-6"><button class="btn btn-light btn-sm w-100 rounded-3 fw-bold" style="font-size: 10px; border: 1px solid var(--border-color);" onclick="printShare('${p.name}', ${p.pct}, '${p.category}')">🖨️ Print</button></div>
-                    <div class="col-6"><button class="btn btn-primary btn-sm w-100 rounded-3 fw-bold shadow-sm" style="font-size: 10px;" onclick="downloadShare('${p.name}', ${p.pct}, '${p.category}')">📥 PDF</button></div>
+                    <div class="col-6"><button class="btn btn-light btn-sm w-100 rounded-3 fw-bold" style="font-size: 10px; border: 1px solid var(--border-color);" onclick="printShareById('${p.id}')">🖨️ Print</button></div>
+                    <div class="col-6"><button class="btn btn-primary btn-sm w-100 rounded-3 fw-bold shadow-sm" style="font-size: 10px;" onclick="downloadShareById('${p.id}')">📥 PDF</button></div>
                 </div>
             </div>
         `;
@@ -927,7 +991,7 @@ function sealSVG(branchName = 'Safa Branch', size = 160) {
     </svg>`;
 }
 
-async function makeSharePDF(pName, pPct, pCategory) {
+async function makeSharePDF(pName, pPct, pCategory, pExpense = 0) {
     const profit = parseFloat(document.getElementById('profit-total-input').value) || 0;
     const month = document.getElementById('profit-month').value;
     const year = document.getElementById('profit-year').value;
@@ -935,8 +999,12 @@ async function makeSharePDF(pName, pPct, pCategory) {
     const doc = new jsPDF({unit:'mm', format:'a5'});
     const W = doc.internal.pageSize.getWidth();
     const H = doc.internal.pageSize.getHeight();
-    const amt = profit * (pPct/100);
-    const amtStr = 'Rs. ' + amt.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+    const grossAmt = profit * (pPct/100);
+    const expenseAmt = Math.max(0, parseFloat(pExpense) || 0);
+    const netAmt = Math.max(0, grossAmt - expenseAmt);
+    const grossStr = 'Rs. ' + grossAmt.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+    const expenseStr = 'Rs. ' + expenseAmt.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+    const amtStr = 'Rs. ' + netAmt.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
     const initials = pName.split(' ').map(n=>n[0]).join('').toUpperCase();
     const ref = `BNS-${month.slice(0,3).toUpperCase()}${year}-${initials}`;
     const catLabel = (pCategory || 'working') === 'working' ? 'Working Partner' : 'Non-Working Partner';
@@ -1121,7 +1189,7 @@ async function makeSharePDF(pName, pPct, pCategory) {
             doc.setLineWidth(0.3);
             doc.line(12, 79.5, W - 12, 79.5);
 
-            // Row 1: Share Percentage
+            // Row 1: Gross Share
             doc.setFillColor(...softCard);
             doc.rect(8, 81, W - 16, 9, 'F');
             doc.setDrawColor(...goldLight);
@@ -1130,32 +1198,48 @@ async function makeSharePDF(pName, pPct, pCategory) {
             doc.setFontSize(6.5);
             doc.setFont('helvetica', 'normal');
             doc.setTextColor(...mutedText);
-            doc.text('Your Share Percentage', 12, 86.5);
+            doc.text(`Gross Share (${pPct}%)`, 12, 86.5);
             doc.setFontSize(9);
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(...darkText);
-            doc.text(pPct + '%', W - 12, 86.5, {align:'right'});
+            doc.text(grossStr, W - 12, 86.5, {align:'right'});
 
-            // Row 2: Amount Payable (highlighted emerald)
+            // Row 2: Partner Expense
+            doc.setFillColor(...white);
+            doc.rect(8, 90, W - 16, 9, 'F');
+            doc.setDrawColor(...goldLight);
+            doc.setLineWidth(0.15);
+            doc.rect(8, 90, W - 16, 9);
+            doc.setFontSize(6.5);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(...mutedText);
+            doc.text('Partner Expense Deduction', 12, 95.5);
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...darkText);
+            doc.text(expenseStr, W - 12, 95.5, {align:'right'});
+
+            // Row 3: Amount Payable (highlighted emerald)
             doc.setFillColor(...emerald);
-            doc.roundedRect(8, 92, W - 16, 12, 1.5, 1.5, 'F');
+            doc.roundedRect(8, 101, W - 16, 12, 1.5, 1.5, 'F');
             doc.setDrawColor(...gold);
             doc.setLineWidth(0.6);
-            doc.roundedRect(8, 92, W - 16, 12, 1.5, 1.5);
+            doc.roundedRect(8, 101, W - 16, 12, 1.5, 1.5);
             doc.setFontSize(7);
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(...cream);
-            doc.text('AMOUNT PAYABLE', 12, 98.5);
+            doc.text('AMOUNT PAYABLE', 12, 107.5);
             doc.setFontSize(13);
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(...gold);
-            doc.text(amtStr, W - 12, 100, {align:'right'});
+            doc.text(amtStr, W - 12, 109, {align:'right'});
 
             // === DESCRIPTION & SEAL (y: 115 → 142) ===
             doc.setFontSize(6.5);
             doc.setFont('helvetica', 'normal');
             doc.setTextColor(...darkText);
-            const greetingText = `Dear ${pName.split(' ')[0]}, we are pleased to inform you that for the month of ${month} ${year}, your profit share from Boofiya Nujoom \u2013 ${currentBranch || 'Safa Branch'} has been calculated based on your ${pPct}% shareholding. Please retain this receipt for your personal records.`;
+            const expenseNote = expenseAmt > 0 ? ' after deducting your partner expense for this period' : '';
+            const greetingText = `Dear ${pName.split(' ')[0]}, we are pleased to inform you that for the month of ${month} ${year}, your profit share from Boofiya Nujoom \u2013 ${currentBranch || 'Safa Branch'} has been calculated based on your ${pPct}% shareholding${expenseNote}. Please retain this receipt for your personal records.`;
             doc.text(greetingText, 12, 118, {maxWidth: W/2 - 4});
 
             // Seal (right side)
@@ -1238,11 +1322,26 @@ async function printShare(name, pct, category) {
     window.open(doc.output('bloburl'), '_blank');
 }
 
+async function downloadShareById(partnerId) {
+    const partner = branchPartners.find(p => p.id === partnerId);
+    if (!partner) return;
+    const doc = await makeSharePDF(partner.name, partner.pct, partner.category, partnerExpenses[partnerId] || 0);
+    doc.save(`Receipt_${partner.name.replace(/\s+/g,'_')}.pdf`);
+}
+
+async function printShareById(partnerId) {
+    const partner = branchPartners.find(p => p.id === partnerId);
+    if (!partner) return;
+    const doc = await makeSharePDF(partner.name, partner.pct, partner.category, partnerExpenses[partnerId] || 0);
+    doc.autoPrint();
+    window.open(doc.output('bloburl'), '_blank');
+}
+
 async function downloadAllShares() {
     const {jsPDF} = window.jspdf;
     const master = new jsPDF({unit:'mm', format:'a5'});
     for(let i=0; i<branchPartners.length; i++) {
-        const doc = await makeSharePDF(branchPartners[i].name, branchPartners[i].pct, branchPartners[i].category);
+        const doc = await makeSharePDF(branchPartners[i].name, branchPartners[i].pct, branchPartners[i].category, partnerExpenses[branchPartners[i].id] || 0);
         if(i > 0) master.addPage();
         master.internal.pages[i+1] = doc.internal.pages[1];
     }
@@ -1253,7 +1352,7 @@ async function printAllShares() {
     const {jsPDF} = window.jspdf;
     const master = new jsPDF({unit:'mm', format:'a5'});
     for(let i=0; i<branchPartners.length; i++) {
-        const doc = await makeSharePDF(branchPartners[i].name, branchPartners[i].pct, branchPartners[i].category);
+        const doc = await makeSharePDF(branchPartners[i].name, branchPartners[i].pct, branchPartners[i].category, partnerExpenses[branchPartners[i].id] || 0);
         if(i > 0) master.addPage();
         master.internal.pages[i+1] = doc.internal.pages[1];
     }
@@ -1785,7 +1884,12 @@ function refreshPartnersListUI() {
                 <td class="ps-3 text-start"><strong>${p.name}</strong></td>
                 <td><span class="badge ${badgeClass}">${categoryLabel}</span></td>
                 <td class="fw-bold">${p.pct}%</td>
-                <td class="pe-3"><button class="btn btn-sm btn-light text-danger border" onclick="deleteBranchPartner('${p.id}')">🗑️</button></td>
+                <td class="pe-3">
+                    <div class="d-flex justify-content-center gap-2">
+                        <button class="btn btn-sm btn-light text-primary border" onclick="editBranchPartner('${p.id}')">Edit</button>
+                        <button class="btn btn-sm btn-light text-danger border" onclick="deleteBranchPartner('${p.id}')">🗑️</button>
+                    </div>
+                </td>
             `;
             body.appendChild(tr);
         });
@@ -1802,12 +1906,58 @@ function refreshPartnersListUI() {
     }
 }
 
+function resetPartnerForm() {
+    editingPartnerId = null;
+
+    const form = document.getElementById('add-partner-form');
+    const nameInput = document.getElementById('partner-name-input');
+    const catSelect = document.getElementById('partner-category-select');
+    const pctInput = document.getElementById('partner-pct-input');
+    const title = document.getElementById('partner-form-title');
+    const submitBtn = document.getElementById('partner-submit-btn');
+    const cancelWrap = document.getElementById('partner-cancel-edit-wrap');
+
+    if (form) form.reset();
+    if (nameInput) nameInput.value = '';
+    if (catSelect) catSelect.value = 'working';
+    if (pctInput) pctInput.value = '';
+    if (title) title.textContent = 'Add New Partner (شريك جديد)';
+    if (submitBtn) submitBtn.textContent = '+ Add';
+    if (cancelWrap) cancelWrap.style.display = 'none';
+}
+
+function editBranchPartner(id) {
+    const partner = branchPartners.find(p => p.id === id);
+    if (!partner) {
+        alert('Partner not found. Please refresh and try again.');
+        return;
+    }
+
+    editingPartnerId = id;
+
+    const nameInput = document.getElementById('partner-name-input');
+    const catSelect = document.getElementById('partner-category-select');
+    const pctInput = document.getElementById('partner-pct-input');
+    const title = document.getElementById('partner-form-title');
+    const submitBtn = document.getElementById('partner-submit-btn');
+    const cancelWrap = document.getElementById('partner-cancel-edit-wrap');
+
+    if (nameInput) nameInput.value = partner.name || '';
+    if (catSelect) catSelect.value = partner.category || 'working';
+    if (pctInput) pctInput.value = partner.pct || '';
+    if (title) title.textContent = 'Edit Partner';
+    if (submitBtn) submitBtn.textContent = 'Update';
+    if (cancelWrap) cancelWrap.style.display = 'block';
+    if (nameInput) nameInput.focus();
+}
+
 async function deleteBranchPartner(id) {
     if (confirm('Are you sure you want to delete this partner?')) {
         const uid = window.fb.auth.currentUser.uid;
         await window.fb.deleteDoc(window.fb.doc(window.fb.db, `users/${uid}/branches/${currentBranch}/partners`, id));
         await loadBranchPartners(currentBranch);
         renderProfitShares();
+        if (editingPartnerId === id) resetPartnerForm();
     }
 }
 
@@ -1828,7 +1978,7 @@ async function handleAddPartnerFormSubmit(e) {
     
     if (!name) return;
     
-    const id = 'PT-' + Date.now();
+    const id = editingPartnerId || 'PT-' + Date.now();
     const uid = window.fb.auth.currentUser.uid;
     const partnerData = {
         id,
@@ -1839,8 +1989,7 @@ async function handleAddPartnerFormSubmit(e) {
     
     try {
         await window.fb.setDoc(window.fb.doc(window.fb.db, `users/${uid}/branches/${currentBranch}/partners`, id), partnerData);
-        nameInput.value = '';
-        pctInput.value = '';
+        resetPartnerForm();
         await loadBranchPartners(currentBranch);
         renderProfitShares();
     } catch (err) {
@@ -1854,10 +2003,13 @@ window.generateCustomReport = generateCustomReport;
 window.downloadCustomRangePDF = downloadCustomRangePDF;
 window.downloadSponsorPDF = downloadSponsorPDF; window.generateSponsorReport = generateSponsorReport; window.deleteSponsorTx = deleteSponsorTx;
 window.printShare = printShare; window.downloadShare = downloadShare;
+window.printShareById = printShareById; window.downloadShareById = downloadShareById;
+window.savePartnerExpense = savePartnerExpense;
 window.printAllShares = printAllShares; window.downloadAllShares = downloadAllShares;
 window.editEntry = editEntry; window.deleteEntry = deleteEntry; 
 window.deleteDoc = deleteDoc; window.editDoc = editDoc; window.addExpenseRow = addExpenseRow; window.restoreTrash = restoreTrash; window.permanentDelete = permanentDelete;
 window.refreshSponsorUI = refreshSponsorUI;
+window.editBranchPartner = editBranchPartner;
 window.deleteBranchPartner = deleteBranchPartner;
 window.loadBranchPartners = loadBranchPartners;
 

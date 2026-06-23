@@ -1160,7 +1160,7 @@
                 </div>
                 <div class="modal-body p-5 pt-4">
                     <form id="add-partner-form" class="mb-4 p-4 bg-light rounded-4 border">
-                        <h5 class="fw-bold mb-3 text-primary">Add New Partner (شريك جديد)</h5>
+                        <h5 class="fw-bold mb-3 text-primary" id="partner-form-title">Add New Partner (شريك جديد)</h5>
                         <div class="row g-3 align-items-end">
                             <div class="col-md-5">
                                 <label class="small fw-bold text-muted mb-2">PARTNER NAME</label>
@@ -1178,7 +1178,10 @@
                                 <input type="number" id="partner-pct-input" class="form-control border-2 rounded-3" placeholder="0.00" step="0.01" min="0" max="100" required>
                             </div>
                             <div class="col-md-2">
-                                <button type="submit" class="btn btn-primary w-100 rounded-pill py-2.5 fw-bold shadow-sm">+ Add</button>
+                                <button type="submit" id="partner-submit-btn" class="btn btn-primary w-100 rounded-pill py-2.5 fw-bold shadow-sm">+ Add</button>
+                            </div>
+                            <div class="col-12" id="partner-cancel-edit-wrap" style="display: none;">
+                                <button type="button" id="partner-cancel-edit-btn" class="btn btn-sm btn-light border rounded-pill px-3">Cancel Edit</button>
                             </div>
                         </div>
                     </form>
