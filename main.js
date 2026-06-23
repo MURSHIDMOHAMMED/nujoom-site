@@ -1,12 +1,5 @@
 // main.js
-const PARTNERS = [
-  {name:'Musthafa Mk',pct:60.75},
-  {name:'Asees Mk',   pct:14},
-  {name:'Mujeeb Mk',  pct:10},
-  {name:'Ismail T',   pct:6.03},
-  {name:'Kunjapu Mk', pct:5.72},
-  {name:'Bavutty',    pct:3.5},
-];
+let branchPartners = [];
 
 let allData = {};
 let documents = [];
@@ -193,7 +186,7 @@ async function switchView(v) {
 
     if(v.includes('dashboard')) renderDashboard();
     if(v.includes('docs')) { const type = v.includes('employee') ? 'employee' : 'company'; activeDocType = type; renderDocuments(type); }
-    if(v === 'profit') renderProfitShares();
+    if(v === 'profit') { await loadBranchPartners(currentBranch); renderProfitShares(); }
     if(v === 'sponsor') await loadSponsors();
     if(v === 'trash') renderTrash();
     if(v === 'salary') {
@@ -643,6 +636,11 @@ function setupListeners() {
         };
     });
 
+    const addPartnerForm = document.getElementById('add-partner-form');
+    if (addPartnerForm) {
+        addPartnerForm.onsubmit = handleAddPartnerFormSubmit;
+    }
+
     console.log("✅ Event Listeners Ready");
 }
 
@@ -868,7 +866,7 @@ function renderProfitShares() {
         return;
     }
 
-    PARTNERS.forEach(p => {
+    branchPartners.forEach(p => {
         const amt = profit * (p.pct / 100);
         const col = document.createElement('div');
         col.className = 'col-md-6 col-lg-4';
@@ -880,7 +878,10 @@ function renderProfitShares() {
                         <div class="rounded-circle bg-light d-flex align-items-center justify-content-center fw-bold text-primary" style="width: 45px; height: 45px; border: 1.5px solid var(--border-color); color: var(--primary) !important;">${p.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase()}</div>
                         <div>
                             <div class="fw-bold small text-main">${p.name}</div>
-                            <div class="text-muted small" style="font-size: 10px;">${p.pct}% Share</div>
+                            <div class="d-flex align-items-center gap-1 mt-1">
+                                <span class="badge ${p.category === 'working' ? 'bg-success' : 'bg-secondary'}" style="font-size: 8px; padding: 2px 6px; color: white !important;">${p.category === 'working' ? 'Working' : 'Non-working'}</span>
+                                <span class="text-muted small" style="font-size: 10px;">${p.pct}% Share</span>
+                            </div>
                         </div>
                     </div>
                     <span class="badge rounded-pill bg-light text-primary border" style="color: var(--primary) !important; border-color: var(--border-color) !important;">${p.pct}%</span>
@@ -893,8 +894,8 @@ function renderProfitShares() {
                     </div>
                 </div>
                 <div class="row g-2">
-                    <div class="col-6"><button class="btn btn-light btn-sm w-100 rounded-3 fw-bold" style="font-size: 10px; border: 1px solid var(--border-color);" onclick="printShare('${p.name}', ${p.pct})">🖨️ Print</button></div>
-                    <div class="col-6"><button class="btn btn-primary btn-sm w-100 rounded-3 fw-bold shadow-sm" style="font-size: 10px;" onclick="downloadShare('${p.name}', ${p.pct})">📥 PDF</button></div>
+                    <div class="col-6"><button class="btn btn-light btn-sm w-100 rounded-3 fw-bold" style="font-size: 10px; border: 1px solid var(--border-color);" onclick="printShare('${p.name}', ${p.pct}, '${p.category}')">🖨️ Print</button></div>
+                    <div class="col-6"><button class="btn btn-primary btn-sm w-100 rounded-3 fw-bold shadow-sm" style="font-size: 10px;" onclick="downloadShare('${p.name}', ${p.pct}, '${p.category}')">📥 PDF</button></div>
                 </div>
             </div>
         `;
@@ -902,44 +903,57 @@ function renderProfitShares() {
     });
 }
 
-function sealSVG(size = 160) {
+function sealSVG(branchName = 'Safa Branch', size = 160) {
     const cx=size/2, cy=size/2, sc=size/160;
     let radials='';
     for(let i=0;i<72;i++){
         const angle=(i/72)*360;
         const rad=angle*(Math.PI/180);
         const r1=49*sc, r2=59*sc;
-        radials+=`<line x1="${(cx+r1*Math.cos(rad)).toFixed(2)}" y1="${(cy+r1*Math.sin(rad)).toFixed(2)}" x2="${(cx+r2*Math.cos(rad)).toFixed(2)}" y2="${(cy+r2*Math.sin(rad)).toFixed(2)}" stroke="#b8922a" stroke-width="${0.8*sc}"/>`;
+        radials+=`<line x1="${(cx+r1*Math.cos(rad)).toFixed(2)}" y1="${(cy+r1*Math.sin(rad)).toFixed(2)}" x2="${(cx+r2*Math.cos(rad)).toFixed(2)}" y2="${(cy+r2*Math.sin(rad)).toFixed(2)}" stroke="#D9A441" stroke-width="${0.8*sc}"/>`;
     }
     const textR=66*sc;
     return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
     <defs><path id="topP" d="M ${cx - textR},${cy} A ${textR},${textR} 0 0,1 ${cx + textR},${cy}"/><path id="botP" d="M ${cx - textR},${cy} A ${textR},${textR} 0 0,0 ${cx + textR},${cy}"/></defs>
-    <circle cx="${cx}" cy="${cy}" r="${75*sc}" fill="none" stroke="#8a5e1a" stroke-width="${3.5*sc}"/><circle cx="${cx}" cy="${cy}" r="${70*sc}" fill="none" stroke="#b8922a" stroke-width="${1.5*sc}"/>
+    <circle cx="${cx}" cy="${cy}" r="${75*sc}" fill="none" stroke="#004236" stroke-width="${3.5*sc}"/><circle cx="${cx}" cy="${cy}" r="${70*sc}" fill="none" stroke="#D9A441" stroke-width="${1.5*sc}"/>
     ${radials}
-    <circle cx="${cx}" cy="${cy}" r="${48*sc}" fill="none" stroke="#b8922a" stroke-width="${1.5*sc}"/><circle cx="${cx}" cy="${cy}" r="${62*sc}" fill="none" stroke="#8a5e1a" stroke-width="1"/>
-    <circle cx="${cx}" cy="${cy}" r="${47*sc}" fill="#fffcf5"/>
-    <text x="${cx}" y="${cy - 6*sc}" text-anchor="middle" font-family="Georgia,serif" font-size="${12*sc}" font-weight="bold" fill="#8a5e1a">Est. 2017</text>
-    <line x1="${cx - 18*sc}" y1="${cy - 1*sc}" x2="${cx + 18*sc}" y2="${cy - 1*sc}" stroke="#b8922a" stroke-width="1"/>
-    <text x="${cx}" y="${cy + 11*sc}" text-anchor="middle" font-family="Georgia,serif" font-size="${13*sc}" font-weight="bold" fill="#8a5e1a">nujoom</text>
-    <text font-family="sans-serif" font-size="${11.5*sc}" font-weight="bold" fill="#8a5e1a"><textPath href="#topP" startOffset="50%" text-anchor="middle">Boofiya Nujoom</textPath></text>
-    <text font-family="sans-serif" font-size="${11*sc}" font-weight="bold" fill="#8a5e1a"><textPath href="#botP" startOffset="50%" text-anchor="middle">Safa Branch</textPath></text>
+    <circle cx="${cx}" cy="${cy}" r="${48*sc}" fill="none" stroke="#D9A441" stroke-width="${1.5*sc}"/><circle cx="${cx}" cy="${cy}" r="${62*sc}" fill="none" stroke="#004236" stroke-width="1"/>
+    <circle cx="${cx}" cy="${cy}" r="${47*sc}" fill="#FFFDF5"/>
+    <text x="${cx}" y="${cy - 6*sc}" text-anchor="middle" font-family="Georgia,serif" font-size="${12*sc}" font-weight="bold" fill="#004236">Est. 2023</text>
+    <line x1="${cx - 18*sc}" y1="${cy - 1*sc}" x2="${cx + 18*sc}" y2="${cy - 1*sc}" stroke="#D9A441" stroke-width="1"/>
+    <text x="${cx}" y="${cy + 11*sc}" text-anchor="middle" font-family="Georgia,serif" font-size="${13*sc}" font-weight="bold" fill="#004236">nujoom</text>
+    <text font-family="sans-serif" font-size="${11.5*sc}" font-weight="bold" fill="#004236"><textPath href="#topP" startOffset="50%" text-anchor="middle">Boofiya Nujoom</textPath></text>
+    <text font-family="sans-serif" font-size="${11*sc}" font-weight="bold" fill="#004236"><textPath href="#botP" startOffset="50%" text-anchor="middle">${branchName}</textPath></text>
     </svg>`;
 }
 
-async function makeSharePDF(pName, pPct) {
+async function makeSharePDF(pName, pPct, pCategory) {
     const profit = parseFloat(document.getElementById('profit-total-input').value) || 0;
     const month = document.getElementById('profit-month').value;
     const year = document.getElementById('profit-year').value;
     const {jsPDF} = window.jspdf;
     const doc = new jsPDF({unit:'mm', format:'a5'});
     const W = doc.internal.pageSize.getWidth();
+    const H = doc.internal.pageSize.getHeight();
     const amt = profit * (pPct/100);
+    const amtStr = 'Rs. ' + amt.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
     const initials = pName.split(' ').map(n=>n[0]).join('').toUpperCase();
     const ref = `BNS-${month.slice(0,3).toUpperCase()}${year}-${initials}`;
+    const catLabel = (pCategory || 'working') === 'working' ? 'Working Partner' : 'Non-Working Partner';
     const today = new Date().toLocaleDateString('en-IN', {day:'2-digit', month:'long', year:'numeric'});
 
+    // Premium Color Palette
+    const emerald = [0, 66, 54];
+    const gold = [217, 164, 65];
+    const goldLight = [235, 200, 130];
+    const cream = [255, 248, 234];
+    const softCard = [255, 253, 245];
+    const white = [255, 255, 255];
+    const darkText = [16, 46, 42];
+    const mutedText = [120, 130, 128];
+
     return new Promise((resolve) => {
-        const svgStr = sealSVG(400);
+        const svgStr = sealSVG(currentBranch || 'Safa Branch', 400);
         const blob = new Blob([svgStr], {type:'image/svg+xml;charset=utf-8'});
         const url = URL.createObjectURL(blob);
         const img = new Image();
@@ -947,53 +961,279 @@ async function makeSharePDF(pName, pPct) {
             const cv = document.createElement('canvas'); cv.width=400; cv.height=400;
             cv.getContext('2d').drawImage(img,0,0,400,400);
             const sealPng = cv.toDataURL('image/png');
-            
-            doc.setFillColor(255,252,245); doc.rect(0,0,W,210,'F');
-            doc.setFillColor(138,94,26); doc.rect(0,0,W,2,'F');
-            doc.setFillColor(184,146,42); doc.rect(0,2,W,3,'F');
-            
-            doc.setFillColor(138,94,26); doc.circle(W/2, 21, 8, 'F');
-            doc.setTextColor(255,232,160); doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.text('BN', W/2, 23, {align:'center'});
-            
-            doc.setTextColor(26,18,8); doc.setFontSize(16); doc.text('Boofiya Nujoom', W/2, 36, {align:'center'});
-            doc.setFontSize(6); doc.setTextColor(160,130,80); doc.text('S A F A   B R A N C H', W/2, 41, {align:'center'});
-            
-            doc.setFillColor(138,94,26); doc.roundedRect(W/2-28, 50, 56, 8, 2, 2, 'F');
-            doc.setTextColor(255,232,160); doc.setFontSize(6.5); doc.text('PROFIT SHARE RECEIPT', W/2, 55.5, {align:'center'});
-            
-            doc.setFontSize(7); doc.setTextColor(140,110,60);
-            doc.text('Ref: '+ref, 18, 64); doc.text('Period: '+month+' '+year, W-18, 64, {align:'right'});
-            
-            doc.setFontSize(8.5); doc.setTextColor(50,32,8); doc.text('Dear '+pName.split(' ')[0]+',', 18, 74);
-            doc.setFontSize(7.8); doc.setTextColor(80,60,20); doc.setFont('helvetica','normal');
-            doc.text(`We are pleased to inform you that for the month of ${month} ${year}, your profit share has been calculated based on your ${pPct}% shareholding.`, 18, 80, {maxWidth: W-36});
 
-            let y = 95;
-            [[ 'Partner Name', pName ], [ 'Profit Share', pPct+'%' ]].forEach((row, i) => {
-                doc.setFillColor(250,245,232); doc.rect(18, y, W-36, 9, 'F');
-                doc.setFontSize(7.5); doc.text(row[0], 22, y+6);
-                doc.setFont('helvetica','bold'); doc.text(row[1], W-22, y+6, {align:'right'});
-                y+=9;
-            });
+            // === PAGE BACKGROUND ===
+            doc.setFillColor(...cream);
+            doc.rect(0, 0, W, H, 'F');
 
-            doc.setFillColor(138,94,26); doc.roundedRect(18, y, W-36, 14, 1, 1, 'F');
-            doc.setFontSize(8); doc.setTextColor(255,218,130); doc.text('Amount Payable', 22, y+6);
-            doc.setFontSize(13); doc.setTextColor(255,238,170); doc.text('Rs. '+(profit*(pPct/100)).toLocaleString('en-IN'), W-22, y+11, {align:'right'});
-            
-            doc.addImage(sealPng, 'PNG', (W-28)/2, y+20, 28, 28);
+            // === DECORATIVE DOUBLE BORDER ===
+            doc.setDrawColor(...gold);
+            doc.setLineWidth(1.2);
+            doc.rect(2, 2, W-4, H-4);
+            doc.setLineWidth(0.3);
+            doc.rect(4, 4, W-8, H-8);
+
+            // Corner gold dots
+            doc.setFillColor(...gold);
+            [[6,6],[W-6,6],[6,H-6],[W-6,H-6]].forEach(([cx,cy]) => doc.circle(cx, cy, 0.8, 'F'));
+
+            // === HEADER SECTION (y: 4 → 30) ===
+            doc.setFillColor(...emerald);
+            doc.rect(4.3, 4.3, W-8.6, 26, 'F');
+
+            // Gold accent line at top of header
+            doc.setDrawColor(...gold);
+            doc.setLineWidth(0.4);
+            doc.line(8, 6.5, W-8, 6.5);
+
+            // BN Monogram (left)
+            doc.setFillColor(...gold);
+            doc.circle(12, 17, 4.5, 'F');
+            doc.setFillColor(...emerald);
+            doc.circle(12, 17, 4, 'F');
+            doc.setTextColor(...cream);
+            doc.setFontSize(7);
+            doc.setFont('helvetica', 'bold');
+            doc.text('BN', 12, 18.5, {align:'center'});
+
+            // Company Name
+            doc.setTextColor(...cream);
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
+            doc.text('BOOFIYA NUJOOM', W/2, 14, {align:'center'});
+
+            // Branch Name
+            doc.setTextColor(...gold);
+            doc.setFontSize(7);
+            doc.setFont('helvetica', 'bold');
+            doc.text((currentBranch || 'Safa Branch').toUpperCase(), W/2, 18, {align:'center'});
+
+            // Subtitle
+            doc.setTextColor(...goldLight);
+            doc.setFontSize(6);
+            doc.setFont('helvetica', 'italic');
+            doc.text('Profit Share Receipt', W/2, 21.5, {align:'center'});
+
+            // PRIVATE & CONFIDENTIAL badge
+            doc.setFillColor(...gold);
+            doc.roundedRect(W-26, 8, 20, 5, 1, 1, 'F');
+            doc.setTextColor(...emerald);
+            doc.setFontSize(4.5);
+            doc.setFont('helvetica', 'bold');
+            doc.text('PRIVATE &', W-16, 10.2, {align:'center'});
+            doc.text('CONFIDENTIAL', W-16, 12.5, {align:'center'});
+
+            // Date & Ref in header bottom
+            doc.setTextColor(...goldLight);
+            doc.setFontSize(5.5);
+            doc.setFont('helvetica', 'normal');
+            doc.text('Date: ' + today, W-8, 25, {align:'right'});
+            doc.text('Ref: ' + ref, W-8, 28, {align:'right'});
+
+            // === GOLD ACCENT BAR ===
+            doc.setFillColor(...gold);
+            doc.rect(4.3, 30.3, W-8.6, 1.5, 'F');
+
+            // === TITLE PILL (y: 34) ===
+            doc.setFillColor(...emerald);
+            doc.roundedRect(W/2-30, 34, 60, 7, 2, 2, 'F');
+            doc.setDrawColor(...gold);
+            doc.setLineWidth(0.6);
+            doc.roundedRect(W/2-30, 34, 60, 7, 2, 2);
+            // Ornamental lines flanking
+            doc.setLineWidth(0.3);
+            doc.line(12, 37.5, W/2-32, 37.5);
+            doc.line(W/2+32, 37.5, W-12, 37.5);
+            doc.setTextColor(...cream);
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'bold');
+            doc.text('PROFIT SHARE RECEIPT', W/2, 38.5, {align:'center'});
+
+            // === RECIPIENT CARD (y: 44 → 72) ===
+            doc.setFillColor(...softCard);
+            doc.roundedRect(8, 44, W-16, 28, 2, 2, 'F');
+            doc.setDrawColor(...gold);
+            doc.setLineWidth(0.5);
+            doc.roundedRect(8, 44, W-16, 28, 2, 2);
+
+            // "ISSUED TO" label
+            doc.setFontSize(6);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...mutedText);
+            doc.text('ISSUED TO', 12, 49);
+
+            // Partner Name (large)
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...darkText);
+            doc.text(pName, 12, 54.5);
+
+            // Category Badge
+            const isWorking = (pCategory || 'working') === 'working';
+            doc.setFillColor(isWorking ? 22 : 107, isWorking ? 163 : 114, isWorking ? 74 : 128);
+            doc.setFontSize(5.5);
+            doc.setFont('helvetica', 'bold');
+            const badgeW = doc.getTextWidth(catLabel) + 5;
+            doc.roundedRect(12, 56, badgeW, 4.5, 1, 1, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.text(catLabel, 14.5, 59);
+
+            // Gold divider inside card
+            doc.setDrawColor(...goldLight);
+            doc.setLineWidth(0.3);
+            doc.line(12, 62.5, W-12, 62.5);
+
+            // Info row: Period | Branch | Reference
+            const infoY = 65.5;
+            doc.setFontSize(5.5);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...mutedText);
+            doc.text('PERIOD', 12, infoY);
+            doc.setFontSize(7);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...darkText);
+            doc.text(month + ' ' + year, 12, infoY + 3.5);
+
+            doc.setFontSize(5.5);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...mutedText);
+            doc.text('BRANCH', W/2 - 10, infoY);
+            doc.setFontSize(7);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...darkText);
+            doc.text(currentBranch || 'Safa Branch', W/2 - 10, infoY + 3.5);
+
+            doc.setFontSize(5.5);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...mutedText);
+            doc.text('REFERENCE', W - 40, infoY);
+            doc.setFontSize(7);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...darkText);
+            doc.text(ref, W - 40, infoY + 3.5);
+
+            // === FINANCIAL SUMMARY (y: 76 → 113) ===
+            doc.setFontSize(7);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...emerald);
+            doc.text('FINANCIAL SUMMARY', 12, 78);
+            doc.setDrawColor(...gold);
+            doc.setLineWidth(0.3);
+            doc.line(12, 79.5, W - 12, 79.5);
+
+            // Row 1: Share Percentage
+            doc.setFillColor(...softCard);
+            doc.rect(8, 81, W - 16, 9, 'F');
+            doc.setDrawColor(...goldLight);
+            doc.setLineWidth(0.15);
+            doc.rect(8, 81, W - 16, 9);
+            doc.setFontSize(6.5);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(...mutedText);
+            doc.text('Your Share Percentage', 12, 86.5);
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...darkText);
+            doc.text(pPct + '%', W - 12, 86.5, {align:'right'});
+
+            // Row 2: Amount Payable (highlighted emerald)
+            doc.setFillColor(...emerald);
+            doc.roundedRect(8, 92, W - 16, 12, 1.5, 1.5, 'F');
+            doc.setDrawColor(...gold);
+            doc.setLineWidth(0.6);
+            doc.roundedRect(8, 92, W - 16, 12, 1.5, 1.5);
+            doc.setFontSize(7);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...cream);
+            doc.text('AMOUNT PAYABLE', 12, 98.5);
+            doc.setFontSize(13);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...gold);
+            doc.text(amtStr, W - 12, 100, {align:'right'});
+
+            // === DESCRIPTION & SEAL (y: 115 → 142) ===
+            doc.setFontSize(6.5);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(...darkText);
+            const greetingText = `Dear ${pName.split(' ')[0]}, we are pleased to inform you that for the month of ${month} ${year}, your profit share from Boofiya Nujoom \u2013 ${currentBranch || 'Safa Branch'} has been calculated based on your ${pPct}% shareholding. Please retain this receipt for your personal records.`;
+            doc.text(greetingText, 12, 118, {maxWidth: W/2 - 4});
+
+            // Seal (right side)
+            doc.addImage(sealPng, 'PNG', W/2 + 14, 115, 25, 25);
+
+            // === GOLD ORNAMENTAL DIVIDER (y: 143) ===
+            doc.setDrawColor(...gold);
+            doc.setLineWidth(0.3);
+            doc.line(12, 143, W/2 - 4, 143);
+            doc.line(W/2 + 4, 143, W - 12, 143);
+            doc.setFillColor(...gold);
+            doc.circle(W/2, 143, 1.2, 'F');
+
+            // === SIGNATURE SECTION (y: 148 → 165) ===
+            // Left: Authorized signature
+            doc.setDrawColor(...darkText);
+            doc.setLineWidth(0.4);
+            doc.line(12, 158, 48, 158);
+            doc.setFontSize(6);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...darkText);
+            doc.text('For Boofiya Nujoom', 12, 161);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(...mutedText);
+            doc.text('Authorized Signature', 12, 164);
+
+            // Right: Partner acknowledgment
+            doc.setDrawColor(...darkText);
+            doc.line(W - 50, 158, W - 12, 158);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...darkText);
+            doc.text('Partner Acknowledgment', W - 50, 161);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(...mutedText);
+            doc.text('Signature / Date', W - 50, 164);
+
+            // === THANK YOU (y: 170) ===
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'italic');
+            doc.setTextColor(...gold);
+            doc.text('\u201C Together we grow, together we succeed \u201D', W/2, 172, {align:'center'});
+            doc.setFontSize(7);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...darkText);
+            doc.text('Thank you for your trust and partnership.', W/2, 177, {align:'center'});
+
+            // === FOOTER BAR ===
+            doc.setFillColor(...emerald);
+            doc.roundedRect(4.3, H - 16, W - 8.6, 11.7, 1.5, 1.5, 'F');
+            doc.setDrawColor(...gold);
+            doc.setLineWidth(0.8);
+            doc.roundedRect(4.3, H - 16, W - 8.6, 11.7, 1.5, 1.5);
+
+            doc.setFontSize(6);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(...cream);
+            doc.text('+91 87147 47561', 12, H - 10);
+            doc.text(`Boofiya Nujoom \u2013 ${currentBranch || 'Safa Branch'}`, W/2, H - 10, {align:'center'});
+            doc.text('boofiyanujooom@gmail.com', W - 12, H - 10, {align:'right'});
+
+            doc.setFontSize(5);
+            doc.setFont('helvetica', 'italic');
+            doc.setTextColor(...goldLight);
+            doc.text('This is a computer-generated document. No physical signature is required for validation.', W/2, H - 6.5, {align:'center'});
+
             resolve(doc);
         };
         img.src = url;
     });
 }
 
-async function downloadShare(name, pct) {
-    const doc = await makeSharePDF(name, pct);
+async function downloadShare(name, pct, category) {
+    const doc = await makeSharePDF(name, pct, category);
     doc.save(`Receipt_${name.replace(/\s+/g,'_')}.pdf`);
 }
 
-async function printShare(name, pct) {
-    const doc = await makeSharePDF(name, pct);
+async function printShare(name, pct, category) {
+    const doc = await makeSharePDF(name, pct, category);
     doc.autoPrint();
     window.open(doc.output('bloburl'), '_blank');
 }
@@ -1001,8 +1241,8 @@ async function printShare(name, pct) {
 async function downloadAllShares() {
     const {jsPDF} = window.jspdf;
     const master = new jsPDF({unit:'mm', format:'a5'});
-    for(let i=0; i<PARTNERS.length; i++) {
-        const doc = await makeSharePDF(PARTNERS[i].name, PARTNERS[i].pct);
+    for(let i=0; i<branchPartners.length; i++) {
+        const doc = await makeSharePDF(branchPartners[i].name, branchPartners[i].pct, branchPartners[i].category);
         if(i > 0) master.addPage();
         master.internal.pages[i+1] = doc.internal.pages[1];
     }
@@ -1012,8 +1252,8 @@ async function downloadAllShares() {
 async function printAllShares() {
     const {jsPDF} = window.jspdf;
     const master = new jsPDF({unit:'mm', format:'a5'});
-    for(let i=0; i<PARTNERS.length; i++) {
-        const doc = await makeSharePDF(PARTNERS[i].name, PARTNERS[i].pct);
+    for(let i=0; i<branchPartners.length; i++) {
+        const doc = await makeSharePDF(branchPartners[i].name, branchPartners[i].pct, branchPartners[i].category);
         if(i > 0) master.addPage();
         master.internal.pages[i+1] = doc.internal.pages[1];
     }
@@ -1519,6 +1759,95 @@ function addSponsorDeductionRow(t='', a='') {
     document.getElementById('sp-deductions-container').appendChild(div); 
 }
 
+async function loadBranchPartners(branch) {
+    if (!window.fb || !window.fb.auth.currentUser) return;
+    const uid = window.fb.auth.currentUser.uid;
+    const snap = await window.fb.getDocs(window.fb.collection(window.fb.db, `users/${uid}/branches/${branch}/partners`));
+    branchPartners = snap.docs.map(d => d.data());
+    refreshPartnersListUI();
+}
+
+function refreshPartnersListUI() {
+    const body = document.getElementById('partners-list-body');
+    if (!body) return;
+    body.innerHTML = '';
+    let totalPct = 0;
+    
+    if (branchPartners.length === 0) {
+        body.innerHTML = `<tr><td colspan="4" class="text-center py-4 text-muted">No partners configured for this branch.</td></tr>`;
+    } else {
+        branchPartners.forEach(p => {
+            totalPct += Number(p.pct) || 0;
+            const tr = document.createElement('tr');
+            const categoryLabel = p.category === 'working' ? 'Working Partner' : 'Non-working Partner';
+            const badgeClass = p.category === 'working' ? 'bg-success text-white' : 'bg-secondary text-white';
+            tr.innerHTML = `
+                <td class="ps-3 text-start"><strong>${p.name}</strong></td>
+                <td><span class="badge ${badgeClass}">${categoryLabel}</span></td>
+                <td class="fw-bold">${p.pct}%</td>
+                <td class="pe-3"><button class="btn btn-sm btn-light text-danger border" onclick="deleteBranchPartner('${p.id}')">🗑️</button></td>
+            `;
+            body.appendChild(tr);
+        });
+    }
+    
+    const badge = document.getElementById('partners-total-share-badge');
+    if (badge) {
+        badge.textContent = totalPct.toFixed(2) + '%';
+        if (Math.abs(totalPct - 100) < 0.01) {
+            badge.className = 'h5 fw-bold mb-0 text-success';
+        } else {
+            badge.className = 'h5 fw-bold mb-0 text-danger';
+        }
+    }
+}
+
+async function deleteBranchPartner(id) {
+    if (confirm('Are you sure you want to delete this partner?')) {
+        const uid = window.fb.auth.currentUser.uid;
+        await window.fb.deleteDoc(window.fb.doc(window.fb.db, `users/${uid}/branches/${currentBranch}/partners`, id));
+        await loadBranchPartners(currentBranch);
+        renderProfitShares();
+    }
+}
+
+async function handleAddPartnerFormSubmit(e) {
+    e.preventDefault();
+    if (!currentBranch) {
+        alert("Please select a branch first.");
+        return;
+    }
+    const nameInput = document.getElementById('partner-name-input');
+    const catSelect = document.getElementById('partner-category-select');
+    const pctInput = document.getElementById('partner-pct-input');
+    if (!nameInput || !catSelect || !pctInput) return;
+    
+    const name = nameInput.value.trim();
+    const category = catSelect.value;
+    const pct = parseFloat(pctInput.value) || 0;
+    
+    if (!name) return;
+    
+    const id = 'PT-' + Date.now();
+    const uid = window.fb.auth.currentUser.uid;
+    const partnerData = {
+        id,
+        name,
+        category,
+        pct
+    };
+    
+    try {
+        await window.fb.setDoc(window.fb.doc(window.fb.db, `users/${uid}/branches/${currentBranch}/partners`, id), partnerData);
+        nameInput.value = '';
+        pctInput.value = '';
+        await loadBranchPartners(currentBranch);
+        renderProfitShares();
+    } catch (err) {
+        alert("Failed to save partner: " + err.message);
+    }
+}
+
 window.addSponsorDeductionRow = addSponsorDeductionRow;
 window.openEditSponsorModal = openEditSponsorModal;
 window.generateCustomReport = generateCustomReport;
@@ -1529,8 +1858,9 @@ window.printAllShares = printAllShares; window.downloadAllShares = downloadAllSh
 window.editEntry = editEntry; window.deleteEntry = deleteEntry; 
 window.deleteDoc = deleteDoc; window.editDoc = editDoc; window.addExpenseRow = addExpenseRow; window.restoreTrash = restoreTrash; window.permanentDelete = permanentDelete;
 window.refreshSponsorUI = refreshSponsorUI;
+window.deleteBranchPartner = deleteBranchPartner;
+window.loadBranchPartners = loadBranchPartners;
 
 
 // Initialize immediately since this is a module
 setupListeners();
-

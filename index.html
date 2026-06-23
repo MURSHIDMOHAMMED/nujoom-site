@@ -385,6 +385,10 @@
                         <div class="mx-auto mt-3" style="width: 50px; height: 4px; background: var(--primary); border-radius: 10px;"></div>
                     </div>
 
+                    <div class="d-flex justify-content-end mb-4">
+                        <button class="btn btn-outline-primary rounded-pill px-4 py-2 fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#manage-partners-modal">👥 Manage Partners (إدارة الشركاء)</button>
+                    </div>
+
                     <div class="row g-4 mb-5">
                         <div class="col-md-4">
                             <label class="small fw-bold text-muted mb-2">SELECT MONTH</label>
@@ -1145,6 +1149,67 @@
     <div class="modal fade" id="new-sponsor-modal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content border-0 shadow-lg rounded-5"><form id="new-sponsor-form"><div class="modal-body p-5"><h3 class="fw-bold mb-4">New Sponsor (كفيل جديد)</h3><div class="mb-3"><label class="small fw-bold text-muted">SPONSOR NAME</label><input type="text" name="name" class="form-control border-2" placeholder="e.g. Abdullah" required></div><div class="mb-3"><label class="small fw-bold text-muted">OPENING BALANCE (الرصيد الافتتاحي)</label><input type="number" name="openingBalance" class="form-control border-2" placeholder="0.00" step="0.01"></div></div><div class="modal-footer border-0 p-4 pt-0"><button type="submit" class="btn btn-primary w-100 py-3 rounded-pill fw-bold shadow">Create Sponsor</button></div></form></div></div></div>
 
     <div class="modal fade" id="edit-sponsor-modal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content border-0 shadow-lg rounded-5"><form id="edit-sponsor-form"><div class="modal-body p-5"><h3 class="fw-bold mb-4">Edit Sponsor Profile</h3><div class="mb-3"><label class="small fw-bold text-muted">SPONSOR NAME</label><input type="text" name="name" id="edit-sp-name" class="form-control border-2" required></div><div class="mb-3"><label class="small fw-bold text-muted">OPENING BALANCE</label><input type="number" name="openingBalance" id="edit-sp-bal" class="form-control border-2" step="0.01"></div></div><div class="modal-footer border-0 p-4 pt-0"><button type="submit" class="btn btn-primary w-100 py-3 rounded-pill fw-bold shadow">Update Profile</button></div></form></div></div></div>
+
+    <!-- Manage Partners Modal -->
+    <div class="modal fade" id="manage-partners-modal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-5">
+                <div class="modal-header border-0 p-5 pb-0">
+                    <h3 class="fw-bold mb-0">Manage Partners (إدارة الشركاء)</h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-5 pt-4">
+                    <form id="add-partner-form" class="mb-4 p-4 bg-light rounded-4 border">
+                        <h5 class="fw-bold mb-3 text-primary">Add New Partner (شريك جديد)</h5>
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-5">
+                                <label class="small fw-bold text-muted mb-2">PARTNER NAME</label>
+                                <input type="text" id="partner-name-input" class="form-control border-2 rounded-3" placeholder="e.g. Abdullah" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="small fw-bold text-muted mb-2">CATEGORY</label>
+                                <select id="partner-category-select" class="form-select border-2 rounded-3" required>
+                                    <option value="working" selected>Working Partner</option>
+                                    <option value="non-working">Non-working Partner</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="small fw-bold text-muted mb-2">SHARE %</label>
+                                <input type="number" id="partner-pct-input" class="form-control border-2 rounded-3" placeholder="0.00" step="0.01" min="0" max="100" required>
+                            </div>
+                            <div class="col-md-2">
+                                <button type="submit" class="btn btn-primary w-100 rounded-pill py-2.5 fw-bold shadow-sm">+ Add</button>
+                            </div>
+                        </div>
+                    </form>
+
+                    <h5 class="fw-bold mb-3 text-muted">Partners List (قائمة الشركاء)</h5>
+                    <div class="table-responsive bg-white rounded-4 border shadow-sm mb-3">
+                        <table class="table table-hover align-middle mb-0 text-center">
+                            <thead class="bg-light small">
+                                <tr>
+                                    <th class="ps-3 text-start">Name</th>
+                                    <th>Category</th>
+                                    <th>Share %</th>
+                                    <th class="pe-3">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="partners-list-body">
+                                <tr>
+                                    <td colspan="4" class="text-center py-4 text-muted">Loading partners...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center p-3 rounded-4 border bg-light">
+                        <span class="small fw-bold text-muted">Total Share Allocation:</span>
+                        <span class="h5 fw-bold mb-0" id="partners-total-share-badge">0%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
     <datalist id="sponsor-expense-cats"><option value="وقود (Fuel)"><option value="طعام (Food)"><option value="مواد (Materials)"><option value="صيانة (Maintenance)"><option value="رواتب (Salaries)"></datalist>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

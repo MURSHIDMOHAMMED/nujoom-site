@@ -413,6 +413,14 @@
                 await window.fb.deleteDoc(window.fb.doc(window.fb.db, `users/${uid}/salary_advances`, id));
                 await loadAllPayrollData();
                 renderAdvancesTable();
+
+                // If the payment form is currently showing a selected employee/month,
+                // refresh the live salary calculation so the deleted advance no longer appears.
+                const payEmpSelect = document.getElementById('payment-emp-select');
+                const payMonthSelect = document.getElementById('payment-month');
+                if (payEmpSelect && payMonthSelect && payEmpSelect.value && payMonthSelect.value) {
+                    handleEmployeeMonthChange();
+                }
             } catch (err) {
                 alert("Error deleting advance: " + err.message);
             }
