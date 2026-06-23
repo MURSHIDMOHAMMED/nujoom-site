@@ -896,7 +896,7 @@ async function loadPartnerExpensesForPeriod() {
 
     if (expenseSnap.exists()) {
         const data = expenseSnap.data();
-        partnerExpenses = data.expenses || {};
+        partnerExpenses = {};
         partnerExpenseItems = data.items || [];
     }
 }
@@ -909,22 +909,29 @@ async function persistPartnerExpenses() {
     await window.fb.setDoc(window.fb.doc(window.fb.db, `users/${uid}/branches/${currentBranch}/partnerExpenses`, periodKey), {
         branch: currentBranch,
         period: periodKey,
-        expenses: partnerExpenses,
+        expenses: {},
         items: partnerExpenseItems,
         updatedAt: Date.now()
     });
 }
 
 function getPartnerExpenseShare(partner) {
-    const manualExpense = Number(partnerExpenses[partner.id]) || 0;
+    return getPartnerExpenseDetails(partner).reduce((sum, item) => sum + item.amount, 0);
+}
+
+function getPartnerExpenseDetails(partner) {
+    const details = [];
     const totalPct = branchPartners.reduce((sum, p) => sum + (Number(p.pct) || 0), 0) || 100;
     const partnerPct = Number(partner.pct) || 0;
-    const splitExpense = partnerExpenseItems.reduce((sum, item) => {
+    partnerExpenseItems.forEach(item => {
         const amount = Number(item.amount) || 0;
-        return sum + (amount * partnerPct / totalPct);
-    }, 0);
+        const shareAmount = amount * partnerPct / totalPct;
+        if (shareAmount > 0) {
+            details.push({ name: item.name || 'Expense', amount: shareAmount });
+        }
+    });
 
-    return manualExpense + splitExpense;
+    return details;
 }
 
 function renderPartnerExpenseItems() {
@@ -1005,7 +1012,7 @@ function renderProfitShares() {
     branchPartners.forEach(p => {
         const amt = profit * (p.pct / 100);
         const expense = getPartnerExpenseShare(p);
-        const netAmt = Math.max(0, amt - expense);
+        const netAmt = amt - expense;
         const col = document.createElement('div');
         col.className = 'col-md-6 col-lg-4';
         col.innerHTML = `
@@ -1039,7 +1046,7 @@ function renderProfitShares() {
                 </div>
                 <div class="d-flex justify-content-between align-items-end mb-4 p-3 rounded-3" style="background: #f8fafc; border: 1px solid var(--border-color);">
                     <div class="small text-muted fw-bold" style="font-size: 9px; letter-spacing: 1px;">NET PAYABLE</div>
-                    <div class="h4 mb-0 fw-bold text-success">
+                    <div class="h4 mb-0 fw-bold ${netAmt < 0 ? 'text-danger' : 'text-success'}">
                         <span class="small fw-normal me-1" style="font-size: 12px;">Rs.</span>${netAmt.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})}
                     </div>
                 </div>
@@ -1077,7 +1084,7 @@ function sealSVG(branchName = 'Safa Branch', size = 160) {
     </svg>`;
 }
 
-async function makeSharePDF(pName, pPct, pCategory, pExpense = 0) {
+async function makeSharePDF(pName, pPct, pCategory, pExpense = 0, pExpenseDetails = []) {
     const profit = parseFloat(document.getElementById('profit-total-input').value) || 0;
     const month = document.getElementById('profit-month').value;
     const year = document.getElementById('profit-year').value;
@@ -1087,7 +1094,7 @@ async function makeSharePDF(pName, pPct, pCategory, pExpense = 0) {
     const H = doc.internal.pageSize.getHeight();
     const grossAmt = profit * (pPct/100);
     const expenseAmt = Math.max(0, parseFloat(pExpense) || 0);
-    const netAmt = Math.max(0, grossAmt - expenseAmt);
+    const netAmt = grossAmt - expenseAmt;
     const grossStr = 'Rs. ' + grossAmt.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
     const expenseStr = 'Rs. ' + expenseAmt.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
     const amtStr = 'Rs. ' + netAmt.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
@@ -1105,6 +1112,13 @@ async function makeSharePDF(pName, pPct, pCategory, pExpense = 0) {
     const white = [255, 255, 255];
     const darkText = [16, 46, 42];
     const mutedText = [120, 130, 128];
+    const danger = [185, 28, 28];
+    const expenseDetailItems = (pExpenseDetails || [])
+        .filter(item => (Number(item.amount) || 0) > 0)
+        .map(item => ({
+            name: item.name || 'Expense',
+            amount: Number(item.amount) || 0
+        }));
 
     return new Promise((resolve) => {
         const svgStr = sealSVG(currentBranch || 'Safa Branch', 400);
@@ -1302,23 +1316,60 @@ async function makeSharePDF(pName, pPct, pCategory, pExpense = 0) {
             doc.text('Partner Expense Deduction', 12, 95.5);
             doc.setFontSize(9);
             doc.setFont('helvetica', 'bold');
-            doc.setTextColor(...darkText);
-            doc.text(expenseStr, W - 12, 95.5, {align:'right'});
+            doc.setTextColor(...danger);
+            doc.text('- ' + expenseStr, W - 12, 95.5, {align:'right'});
+
+            let amountBoxY = 101;
+            let descriptionY = 118;
+            let sealY = 115;
+            let dividerY = 143;
+            let signatureY = 158;
+            let thankY = 172;
+
+            if (expenseDetailItems.length > 0) {
+                const detailText = expenseDetailItems
+                    .map(item => `${item.name}: Rs. ${item.amount.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})}`)
+                    .join(' | ');
+                const detailLines = doc.splitTextToSize(detailText, W - 24).slice(0, 3);
+                const detailBoxY = 100.5;
+                const detailBoxH = 6.5 + (detailLines.length * 3.4);
+
+                doc.setFillColor(255, 246, 238);
+                doc.rect(8, detailBoxY, W - 16, detailBoxH, 'F');
+                doc.setDrawColor(...danger);
+                doc.setLineWidth(0.2);
+                doc.rect(8, detailBoxY, W - 16, detailBoxH);
+
+                doc.setFontSize(5.2);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(...danger);
+                doc.text('EXPENSE BREAKDOWN', 12, detailBoxY + 4.2);
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(...darkText);
+                doc.text(detailLines, 12, detailBoxY + 7.8);
+
+                amountBoxY = detailBoxY + detailBoxH + 2;
+                descriptionY = amountBoxY + 17;
+                sealY = descriptionY - 3;
+                dividerY = descriptionY + 22;
+                signatureY = dividerY + 13;
+                thankY = signatureY + 14;
+            }
 
             // Row 3: Amount Payable (highlighted emerald)
             doc.setFillColor(...emerald);
-            doc.roundedRect(8, 101, W - 16, 12, 1.5, 1.5, 'F');
+            doc.roundedRect(8, amountBoxY, W - 16, 12, 1.5, 1.5, 'F');
             doc.setDrawColor(...gold);
             doc.setLineWidth(0.6);
-            doc.roundedRect(8, 101, W - 16, 12, 1.5, 1.5);
+            doc.roundedRect(8, amountBoxY, W - 16, 12, 1.5, 1.5);
             doc.setFontSize(7);
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(...cream);
-            doc.text('AMOUNT PAYABLE', 12, 107.5);
+            doc.text('AMOUNT PAYABLE', 12, amountBoxY + 6.5);
             doc.setFontSize(13);
             doc.setFont('helvetica', 'bold');
-            doc.setTextColor(...gold);
-            doc.text(amtStr, W - 12, 109, {align:'right'});
+            doc.setTextColor(...(netAmt < 0 ? [220, 53, 69] : gold));
+            doc.text(amtStr, W - 12, amountBoxY + 8, {align:'right'});
 
             // === DESCRIPTION & SEAL (y: 115 → 142) ===
             doc.setFontSize(6.5);
@@ -1326,51 +1377,51 @@ async function makeSharePDF(pName, pPct, pCategory, pExpense = 0) {
             doc.setTextColor(...darkText);
             const expenseNote = expenseAmt > 0 ? ' after deducting your partner expense for this period' : '';
             const greetingText = `Dear ${pName.split(' ')[0]}, we are pleased to inform you that for the month of ${month} ${year}, your profit share from Boofiya Nujoom \u2013 ${currentBranch || 'Safa Branch'} has been calculated based on your ${pPct}% shareholding${expenseNote}. Please retain this receipt for your personal records.`;
-            doc.text(greetingText, 12, 118, {maxWidth: W/2 - 4});
+            doc.text(greetingText, 12, descriptionY, {maxWidth: W/2 - 4});
 
             // Seal (right side)
-            doc.addImage(sealPng, 'PNG', W/2 + 14, 115, 25, 25);
+            doc.addImage(sealPng, 'PNG', W/2 + 14, sealY, 25, 25);
 
             // === GOLD ORNAMENTAL DIVIDER (y: 143) ===
             doc.setDrawColor(...gold);
             doc.setLineWidth(0.3);
-            doc.line(12, 143, W/2 - 4, 143);
-            doc.line(W/2 + 4, 143, W - 12, 143);
+            doc.line(12, dividerY, W/2 - 4, dividerY);
+            doc.line(W/2 + 4, dividerY, W - 12, dividerY);
             doc.setFillColor(...gold);
-            doc.circle(W/2, 143, 1.2, 'F');
+            doc.circle(W/2, dividerY, 1.2, 'F');
 
             // === SIGNATURE SECTION (y: 148 → 165) ===
             // Left: Authorized signature
             doc.setDrawColor(...darkText);
             doc.setLineWidth(0.4);
-            doc.line(12, 158, 48, 158);
+            doc.line(12, signatureY, 48, signatureY);
             doc.setFontSize(6);
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(...darkText);
-            doc.text('For Boofiya Nujoom', 12, 161);
+            doc.text('For Boofiya Nujoom', 12, signatureY + 3);
             doc.setFont('helvetica', 'normal');
             doc.setTextColor(...mutedText);
-            doc.text('Authorized Signature', 12, 164);
+            doc.text('Authorized Signature', 12, signatureY + 6);
 
             // Right: Partner acknowledgment
             doc.setDrawColor(...darkText);
-            doc.line(W - 50, 158, W - 12, 158);
+            doc.line(W - 50, signatureY, W - 12, signatureY);
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(...darkText);
-            doc.text('Partner Acknowledgment', W - 50, 161);
+            doc.text('Partner Acknowledgment', W - 50, signatureY + 3);
             doc.setFont('helvetica', 'normal');
             doc.setTextColor(...mutedText);
-            doc.text('Signature / Date', W - 50, 164);
+            doc.text('Signature / Date', W - 50, signatureY + 6);
 
             // === THANK YOU (y: 170) ===
             doc.setFontSize(8);
             doc.setFont('helvetica', 'italic');
             doc.setTextColor(...gold);
-            doc.text('\u201C Together we grow, together we succeed \u201D', W/2, 172, {align:'center'});
+            doc.text('\u201C Together we grow, together we succeed \u201D', W/2, thankY, {align:'center'});
             doc.setFontSize(7);
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(...darkText);
-            doc.text('Thank you for your trust and partnership.', W/2, 177, {align:'center'});
+            doc.text('Thank you for your trust and partnership.', W/2, thankY + 5, {align:'center'});
 
             // === FOOTER BAR ===
             doc.setFillColor(...emerald);
@@ -1411,14 +1462,16 @@ async function printShare(name, pct, category) {
 async function downloadShareById(partnerId) {
     const partner = branchPartners.find(p => p.id === partnerId);
     if (!partner) return;
-    const doc = await makeSharePDF(partner.name, partner.pct, partner.category, getPartnerExpenseShare(partner));
+    const expenseDetails = getPartnerExpenseDetails(partner);
+    const doc = await makeSharePDF(partner.name, partner.pct, partner.category, getPartnerExpenseShare(partner), expenseDetails);
     doc.save(`Receipt_${partner.name.replace(/\s+/g,'_')}.pdf`);
 }
 
 async function printShareById(partnerId) {
     const partner = branchPartners.find(p => p.id === partnerId);
     if (!partner) return;
-    const doc = await makeSharePDF(partner.name, partner.pct, partner.category, getPartnerExpenseShare(partner));
+    const expenseDetails = getPartnerExpenseDetails(partner);
+    const doc = await makeSharePDF(partner.name, partner.pct, partner.category, getPartnerExpenseShare(partner), expenseDetails);
     doc.autoPrint();
     window.open(doc.output('bloburl'), '_blank');
 }
@@ -1427,7 +1480,8 @@ async function downloadAllShares() {
     const {jsPDF} = window.jspdf;
     const master = new jsPDF({unit:'mm', format:'a5'});
     for(let i=0; i<branchPartners.length; i++) {
-        const doc = await makeSharePDF(branchPartners[i].name, branchPartners[i].pct, branchPartners[i].category, getPartnerExpenseShare(branchPartners[i]));
+        const expenseDetails = getPartnerExpenseDetails(branchPartners[i]);
+        const doc = await makeSharePDF(branchPartners[i].name, branchPartners[i].pct, branchPartners[i].category, getPartnerExpenseShare(branchPartners[i]), expenseDetails);
         if(i > 0) master.addPage();
         master.internal.pages[i+1] = doc.internal.pages[1];
     }
@@ -1438,7 +1492,8 @@ async function printAllShares() {
     const {jsPDF} = window.jspdf;
     const master = new jsPDF({unit:'mm', format:'a5'});
     for(let i=0; i<branchPartners.length; i++) {
-        const doc = await makeSharePDF(branchPartners[i].name, branchPartners[i].pct, branchPartners[i].category, getPartnerExpenseShare(branchPartners[i]));
+        const expenseDetails = getPartnerExpenseDetails(branchPartners[i]);
+        const doc = await makeSharePDF(branchPartners[i].name, branchPartners[i].pct, branchPartners[i].category, getPartnerExpenseShare(branchPartners[i]), expenseDetails);
         if(i > 0) master.addPage();
         master.internal.pages[i+1] = doc.internal.pages[1];
     }
