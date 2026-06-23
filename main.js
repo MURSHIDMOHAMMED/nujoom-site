@@ -1327,12 +1327,10 @@ async function makeSharePDF(pName, pPct, pCategory, pExpense = 0, pExpenseDetail
             let thankY = 172;
 
             if (expenseDetailItems.length > 0) {
-                const detailText = expenseDetailItems
-                    .map(item => `${item.name}: Rs. ${item.amount.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})}`)
-                    .join(' | ');
-                const detailLines = doc.splitTextToSize(detailText, W - 24).slice(0, 3);
+                const visibleExpenseItems = expenseDetailItems.slice(0, 5);
+                const hiddenExpenseCount = Math.max(0, expenseDetailItems.length - visibleExpenseItems.length);
                 const detailBoxY = 100.5;
-                const detailBoxH = 6.5 + (detailLines.length * 3.4);
+                const detailBoxH = 7.5 + ((visibleExpenseItems.length + (hiddenExpenseCount ? 1 : 0)) * 4.2);
 
                 doc.setFillColor(255, 246, 238);
                 doc.rect(8, detailBoxY, W - 16, detailBoxH, 'F');
@@ -1345,8 +1343,21 @@ async function makeSharePDF(pName, pPct, pCategory, pExpense = 0, pExpenseDetail
                 doc.setTextColor(...danger);
                 doc.text('EXPENSE BREAKDOWN', 12, detailBoxY + 4.2);
                 doc.setFont('helvetica', 'normal');
-                doc.setTextColor(...darkText);
-                doc.text(detailLines, 12, detailBoxY + 7.8);
+                doc.setFontSize(5.8);
+
+                visibleExpenseItems.forEach((item, index) => {
+                    const rowY = detailBoxY + 8.2 + (index * 4.2);
+                    const nameLines = doc.splitTextToSize(item.name, W - 48);
+                    doc.setTextColor(...darkText);
+                    doc.text(nameLines[0], 12, rowY);
+                    doc.setTextColor(...danger);
+                    doc.text('Rs. ' + item.amount.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2}), W - 12, rowY, {align:'right'});
+                });
+
+                if (hiddenExpenseCount) {
+                    doc.setTextColor(...mutedText);
+                    doc.text(`+${hiddenExpenseCount} more expense item(s)`, 12, detailBoxY + 8.2 + (visibleExpenseItems.length * 4.2));
+                }
 
                 amountBoxY = detailBoxY + detailBoxH + 2;
                 descriptionY = amountBoxY + 17;
