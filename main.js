@@ -1,6 +1,7 @@
 // main.js
 let branchPartners = [];
 let partnerExpenses = {};
+let partnerExpenseItems = [];
 
 let allData = {};
 let documents = [];
@@ -655,6 +656,11 @@ function setupListeners() {
         cancelPartnerEditBtn.onclick = resetPartnerForm;
     }
 
+    const partnerExpenseForm = document.getElementById('partner-expense-form');
+    if (partnerExpenseForm) {
+        partnerExpenseForm.onsubmit = handlePartnerExpenseFormSubmit;
+    }
+
     console.log("✅ Event Listeners Ready");
 }
 
@@ -868,8 +874,19 @@ function getProfitPeriodKey() {
     return `${year}-${month}`;
 }
 
+function escapeHTML(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[ch]));
+}
+
 async function loadPartnerExpensesForPeriod() {
     partnerExpenses = {};
+    partnerExpenseItems = [];
     if (!window.fb || !window.fb.auth.currentUser || !currentBranch) return;
 
     const uid = window.fb.auth.currentUser.uid;
@@ -878,15 +895,13 @@ async function loadPartnerExpensesForPeriod() {
     const expenseSnap = await window.fb.getDoc(expenseRef);
 
     if (expenseSnap.exists()) {
-        partnerExpenses = expenseSnap.data().expenses || {};
+        const data = expenseSnap.data();
+        partnerExpenses = data.expenses || {};
+        partnerExpenseItems = data.items || [];
     }
 }
 
-async function savePartnerExpense(partnerId, value) {
-    const expense = Math.max(0, parseFloat(value) || 0);
-    partnerExpenses[partnerId] = expense;
-    renderProfitShares();
-
+async function persistPartnerExpenses() {
     if (!window.fb || !window.fb.auth.currentUser || !currentBranch) return;
 
     const uid = window.fb.auth.currentUser.uid;
@@ -895,8 +910,77 @@ async function savePartnerExpense(partnerId, value) {
         branch: currentBranch,
         period: periodKey,
         expenses: partnerExpenses,
+        items: partnerExpenseItems,
         updatedAt: Date.now()
     });
+}
+
+function getPartnerExpenseShare(partner) {
+    const manualExpense = Number(partnerExpenses[partner.id]) || 0;
+    const totalPct = branchPartners.reduce((sum, p) => sum + (Number(p.pct) || 0), 0) || 100;
+    const partnerPct = Number(partner.pct) || 0;
+    const splitExpense = partnerExpenseItems.reduce((sum, item) => {
+        const amount = Number(item.amount) || 0;
+        return sum + (amount * partnerPct / totalPct);
+    }, 0);
+
+    return manualExpense + splitExpense;
+}
+
+function renderPartnerExpenseItems() {
+    const list = document.getElementById('partner-expense-list');
+    const badge = document.getElementById('partner-expense-total-badge');
+    if (!list) return;
+
+    const total = partnerExpenseItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+    if (badge) badge.textContent = 'Rs. ' + total.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+    if (partnerExpenseItems.length === 0) {
+        list.innerHTML = '<div class="small text-muted text-center py-2">No partner expenses added for this month.</div>';
+        return;
+    }
+
+    list.innerHTML = partnerExpenseItems.map(item => `
+        <div class="d-flex justify-content-between align-items-center gap-3 p-3 rounded-3 bg-light border">
+            <div class="text-start">
+                <div class="fw-bold small">${escapeHTML(item.name)}</div>
+                <div class="text-muted small">Split across partners by share percentage</div>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <div class="fw-bold">Rs. ${(Number(item.amount) || 0).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+                <button class="btn btn-sm btn-light text-danger border" onclick="deletePartnerExpenseItem('${item.id}')">Delete</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function handlePartnerExpenseFormSubmit(e) {
+    e.preventDefault();
+
+    const nameInput = document.getElementById('partner-expense-name-input');
+    const amountInput = document.getElementById('partner-expense-amount-input');
+    if (!nameInput || !amountInput) return;
+
+    const name = nameInput.value.trim();
+    const amount = Math.max(0, parseFloat(amountInput.value) || 0);
+    if (!name || amount <= 0) return;
+
+    partnerExpenseItems.push({
+        id: 'PEX-' + Date.now(),
+        name,
+        amount
+    });
+
+    nameInput.value = '';
+    amountInput.value = '';
+    await persistPartnerExpenses();
+    renderProfitShares();
+}
+
+async function deletePartnerExpenseItem(id) {
+    partnerExpenseItems = partnerExpenseItems.filter(item => item.id !== id);
+    await persistPartnerExpenses();
+    renderProfitShares();
 }
 
 function renderProfitShares() {
@@ -906,6 +990,7 @@ function renderProfitShares() {
     const grid = document.getElementById('profit-partners-grid');
     const summaryBar = document.getElementById('profit-summary-bar');
     const actionRow = document.getElementById('profit-action-row');
+    renderPartnerExpenseItems();
     
     summaryBar.style.setProperty('display', profit > 0 ? 'flex' : 'none', 'important');
     actionRow.style.setProperty('display', profit > 0 ? 'flex' : 'none', 'important');
@@ -919,7 +1004,7 @@ function renderProfitShares() {
 
     branchPartners.forEach(p => {
         const amt = profit * (p.pct / 100);
-        const expense = Number(partnerExpenses[p.id]) || 0;
+        const expense = getPartnerExpenseShare(p);
         const netAmt = Math.max(0, amt - expense);
         const col = document.createElement('div');
         col.className = 'col-md-6 col-lg-4';
@@ -946,10 +1031,11 @@ function renderProfitShares() {
                         <span class="small fw-normal me-1" style="font-size: 12px; color: var(--primary);">Rs.</span>${amt.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})}
                     </div>
                 </div>
-                <label class="small text-muted fw-bold mb-1" style="font-size: 9px; letter-spacing: 1px;">PARTNER EXPENSE</label>
-                <div class="input-group input-group-sm mb-3">
-                    <span class="input-group-text bg-light border-2 fw-bold">Rs.</span>
-                    <input type="number" class="form-control border-2" min="0" step="0.01" value="${expense || ''}" placeholder="0.00" onchange="savePartnerExpense('${p.id}', this.value)">
+                <div class="d-flex justify-content-between align-items-end mb-3">
+                    <div class="small text-muted fw-bold" style="font-size: 9px; letter-spacing: 1px;">EXPENSE SHARE</div>
+                    <div class="h6 mb-0 fw-bold text-danger">
+                        <span class="small fw-normal me-1" style="font-size: 12px;">Rs.</span>${expense.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})}
+                    </div>
                 </div>
                 <div class="d-flex justify-content-between align-items-end mb-4 p-3 rounded-3" style="background: #f8fafc; border: 1px solid var(--border-color);">
                     <div class="small text-muted fw-bold" style="font-size: 9px; letter-spacing: 1px;">NET PAYABLE</div>
@@ -1325,14 +1411,14 @@ async function printShare(name, pct, category) {
 async function downloadShareById(partnerId) {
     const partner = branchPartners.find(p => p.id === partnerId);
     if (!partner) return;
-    const doc = await makeSharePDF(partner.name, partner.pct, partner.category, partnerExpenses[partnerId] || 0);
+    const doc = await makeSharePDF(partner.name, partner.pct, partner.category, getPartnerExpenseShare(partner));
     doc.save(`Receipt_${partner.name.replace(/\s+/g,'_')}.pdf`);
 }
 
 async function printShareById(partnerId) {
     const partner = branchPartners.find(p => p.id === partnerId);
     if (!partner) return;
-    const doc = await makeSharePDF(partner.name, partner.pct, partner.category, partnerExpenses[partnerId] || 0);
+    const doc = await makeSharePDF(partner.name, partner.pct, partner.category, getPartnerExpenseShare(partner));
     doc.autoPrint();
     window.open(doc.output('bloburl'), '_blank');
 }
@@ -1341,7 +1427,7 @@ async function downloadAllShares() {
     const {jsPDF} = window.jspdf;
     const master = new jsPDF({unit:'mm', format:'a5'});
     for(let i=0; i<branchPartners.length; i++) {
-        const doc = await makeSharePDF(branchPartners[i].name, branchPartners[i].pct, branchPartners[i].category, partnerExpenses[branchPartners[i].id] || 0);
+        const doc = await makeSharePDF(branchPartners[i].name, branchPartners[i].pct, branchPartners[i].category, getPartnerExpenseShare(branchPartners[i]));
         if(i > 0) master.addPage();
         master.internal.pages[i+1] = doc.internal.pages[1];
     }
@@ -1352,7 +1438,7 @@ async function printAllShares() {
     const {jsPDF} = window.jspdf;
     const master = new jsPDF({unit:'mm', format:'a5'});
     for(let i=0; i<branchPartners.length; i++) {
-        const doc = await makeSharePDF(branchPartners[i].name, branchPartners[i].pct, branchPartners[i].category, partnerExpenses[branchPartners[i].id] || 0);
+        const doc = await makeSharePDF(branchPartners[i].name, branchPartners[i].pct, branchPartners[i].category, getPartnerExpenseShare(branchPartners[i]));
         if(i > 0) master.addPage();
         master.internal.pages[i+1] = doc.internal.pages[1];
     }
@@ -2004,7 +2090,7 @@ window.downloadCustomRangePDF = downloadCustomRangePDF;
 window.downloadSponsorPDF = downloadSponsorPDF; window.generateSponsorReport = generateSponsorReport; window.deleteSponsorTx = deleteSponsorTx;
 window.printShare = printShare; window.downloadShare = downloadShare;
 window.printShareById = printShareById; window.downloadShareById = downloadShareById;
-window.savePartnerExpense = savePartnerExpense;
+window.deletePartnerExpenseItem = deletePartnerExpenseItem;
 window.printAllShares = printAllShares; window.downloadAllShares = downloadAllShares;
 window.editEntry = editEntry; window.deleteEntry = deleteEntry; 
 window.deleteDoc = deleteDoc; window.editDoc = editDoc; window.addExpenseRow = addExpenseRow; window.restoreTrash = restoreTrash; window.permanentDelete = permanentDelete;

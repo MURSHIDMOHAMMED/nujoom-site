@@ -421,6 +421,30 @@
                         <h3 class="mb-0 fw-bold" id="profit-summary-amt">Rs. 0</h3>
                     </div>
 
+                    <div class="p-4 rounded-4 border bg-white shadow-sm mb-5">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                            <div>
+                                <h5 class="fw-bold mb-1">Partner Expenses</h5>
+                                <div class="small text-muted">Add a monthly expense and it will split across partners by share percentage.</div>
+                            </div>
+                            <span class="badge rounded-pill bg-light text-primary border" id="partner-expense-total-badge">Rs. 0.00</span>
+                        </div>
+                        <form id="partner-expense-form" class="row g-3 align-items-end mb-3">
+                            <div class="col-md-6">
+                                <label class="small fw-bold text-muted mb-2">EXPENSE NAME</label>
+                                <input type="text" id="partner-expense-name-input" class="form-control border-2 rounded-3" placeholder="e.g. Staff food, repair" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="small fw-bold text-muted mb-2">AMOUNT (RS.)</label>
+                                <input type="number" id="partner-expense-amount-input" class="form-control border-2 rounded-3" min="0" step="0.01" placeholder="0.00" required>
+                            </div>
+                            <div class="col-md-2">
+                                <button type="submit" class="btn btn-primary w-100 rounded-pill fw-bold">Add</button>
+                            </div>
+                        </form>
+                        <div id="partner-expense-list" class="d-flex flex-column gap-2"></div>
+                    </div>
+
                     <div id="profit-partners-grid" class="row g-4">
                         <div class="col-12 text-center py-5 text-muted small">Enter the total profit above to calculate each partner's share</div>
                     </div>
